@@ -3,15 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #f8fafc; /* dari-bg */
-  color: #0f172a; /* dari-dark */
-}
-
-/* Ocultar scrollbar pero permitir scroll */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
