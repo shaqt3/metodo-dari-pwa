@@ -15,12 +15,16 @@ export default function Home() {
         transition={{ duration: 0.6 }}
         className="flex flex-col items-center"
       >
-        <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-[#0f172a] shadow-lg">
+        <div
+          className="relative overflow-hidden rounded-full border-4 border-[#0f172a]"
+          style={{ width: "128px", height: "128px" }}
+        >
           <Image
             src="/icon-192.png"
             alt="El Método Dari"
-            fill
-            className="object-cover"
+            width={128}
+            height={128}
+            className="h-full w-full object-cover"
             priority
           />
         </div>
