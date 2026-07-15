@@ -16,8 +16,6 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Cuando el usuario llega desde el enlace del correo, Supabase crea
-    // una sesión temporal automáticamente a partir de la URL.
     const checkSession = async () => {
       const {
         data: { session },
@@ -120,3 +118,37 @@ export default function ResetPasswordPage() {
               type="password"
               required
               minLength={6}
+              placeholder="Nueva contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
+            />
+
+            <input
+              type="password"
+              required
+              minLength={6}
+              placeholder="Confirma la contraseña"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
+            />
+
+            {error && (
+              <p className="text-center text-sm text-red-500">{error}</p>
+            )}
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              disabled={loading}
+              className="mt-2 w-full rounded-xl bg-[#0f172a] px-6 py-3 text-base font-semibold text-white shadow-md transition hover:opacity-90 disabled:opacity-50"
+            >
+              {loading ? "Guardando..." : "Guardar contraseña"}
+            </motion.button>
+          </form>
+        )}
+      </motion.div>
+    </main>
+  );
+}
