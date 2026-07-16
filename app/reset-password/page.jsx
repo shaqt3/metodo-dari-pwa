@@ -16,6 +16,8 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Cuando el usuario llega desde el enlace del correo, Supabase crea
+    // una sesión temporal automáticamente a partir de la URL.
     const checkSession = async () => {
       const {
         data: { session },
