@@ -16,8 +16,6 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Cuando el usuario llega desde el enlace del correo, Supabase crea
-    // una sesión temporal automáticamente a partir de la URL.
     const checkSession = async () => {
       const {
         data: { session },
@@ -69,82 +67,86 @@ export default function ResetPasswordPage() {
 
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white">
-        <p className="text-sm text-[#0f172a]/70">Cargando...</p>
+      <main className="loading-screen">
+        <p>Cargando...</p>
       </main>
     );
   }
 
   if (!hasSession) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <h1 className="text-xl font-extrabold text-[#0f172a]">
-          Enlace no válido
-        </h1>
-        <p className="mt-2 max-w-xs text-sm text-[#0f172a]/60">
-          Este enlace de recuperación no es válido o ha caducado. Solicita
-          uno nuevo desde la pantalla de inicio de sesión.
-        </p>
-        <button
-          onClick={() => router.push("/login")}
-          className="mt-8 rounded-xl bg-[#0f172a] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-        >
-          Volver al inicio de sesión
-        </button>
+      <main className="page-center">
+        <div className="auth-card text-center">
+          <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>
+            Enlace no válido
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--dark-60)", marginBottom: 24 }}>
+            Este enlace de recuperación no es válido o ha caducado. Solicita
+            uno nuevo desde la pantalla de inicio de sesión.
+          </p>
+          <button
+            onClick={() => router.push("/login")}
+            className="btn btn-primary btn-block"
+          >
+            Volver al inicio de sesión
+          </button>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
+    <main className="page-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-xs"
+        className="auth-card"
       >
-        <h1 className="mb-1 text-center text-2xl font-extrabold text-[#0f172a]">
-          Nueva contraseña
-        </h1>
-        <p className="mb-8 text-center text-sm text-[#0f172a]/70">
-          Elige una contraseña nueva para tu cuenta
-        </p>
+        <div className="auth-header">
+          <h1>Nueva contraseña</h1>
+          <p>Elige una contraseña nueva para tu cuenta</p>
+        </div>
 
         {success ? (
-          <p className="text-center text-sm text-[#0369a1]">
+          <p className="form-message form-message-info">
             Contraseña actualizada. Te llevamos a tu panel...
           </p>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input
-              type="password"
-              required
-              minLength={6}
-              placeholder="Nueva contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
-            />
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="Nueva contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input"
+              />
+            </div>
 
-            <input
-              type="password"
-              required
-              minLength={6}
-              placeholder="Confirma la contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
-            />
+            <div className="form-group">
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="Confirma la contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="input"
+              />
+            </div>
 
             {error && (
-              <p className="text-center text-sm text-red-500">{error}</p>
+              <p className="form-message form-message-error">{error}</p>
             )}
 
             <motion.button
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.97 }}
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded-xl bg-[#0f172a] px-6 py-3 text-base font-semibold text-white shadow-md transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary btn-block"
             >
               {loading ? "Guardando..." : "Guardar contraseña"}
             </motion.button>

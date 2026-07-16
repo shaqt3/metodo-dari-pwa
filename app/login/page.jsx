@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -55,8 +56,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Si Supabase tiene activada la confirmación por email, no habrá
-      // sesión todavía: avisamos al usuario para que revise su correo.
       setInfo("Cuenta creada. Revisa tu correo para confirmar el acceso.");
       setMode("login");
       return;
@@ -75,79 +74,88 @@ export default function LoginPage() {
         return;
       }
 
-      setInfo("Te hemos enviado un correo con el enlace para cambiar tu contraseña.");
+      setInfo(
+        "Te hemos enviado un correo con el enlace para cambiar tu contraseña."
+      );
       setMode("login");
     }
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
+    <main className="page-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-xs"
+        className="auth-card"
       >
-        <h1 className="mb-1 text-center text-2xl font-extrabold text-[#0f172a]">
-          {mode === "login" && "Iniciar Sesión"}
-          {mode === "register" && "Crear cuenta"}
-          {mode === "forgot" && "Recuperar contraseña"}
-        </h1>
-        <p className="mb-8 text-center text-sm text-[#0f172a]/70">
-          {mode === "login" && "Accede a tu método de entrenamiento"}
-          {mode === "register" && "Regístrate para empezar a entrenar"}
-          {mode === "forgot" &&
-            "Te enviaremos un enlace a tu correo para restablecerla"}
-        </p>
+        <div className="auth-header">
+          <div className="auth-logo">
+            <Image src="/icon-192.png" alt="El Método Dari" width={56} height={56} />
+          </div>
+          <h1>
+            {mode === "login" && "Iniciar Sesión"}
+            {mode === "register" && "Crear cuenta"}
+            {mode === "forgot" && "Recuperar contraseña"}
+          </h1>
+          <p>
+            {mode === "login" && "Accede a tu método de entrenamiento"}
+            {mode === "register" && "Regístrate para empezar a entrenar"}
+            {mode === "forgot" &&
+              "Te enviaremos un enlace a tu correo para restablecerla"}
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="email"
-            required
-            placeholder="Correo electrónico"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
-          />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <input
+              type="email"
+              required
+              placeholder="Correo electrónico"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+            />
+          </div>
 
           {mode !== "forgot" && (
-            <input
-              type="password"
-              required
-              minLength={6}
-              placeholder="Contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-[#0f172a]/20 px-4 py-3 text-sm text-[#0f172a] outline-none focus:border-[#38bdf8]"
-            />
+            <div className="form-group">
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input"
+              />
+            </div>
           )}
 
           {mode === "login" && (
-            <button
-              type="button"
-              onClick={() => {
-                setError("");
-                setInfo("");
-                setMode("forgot");
-              }}
-              className="-mt-2 text-right text-xs text-[#0f172a]/60 underline underline-offset-2"
-            >
-              ¿Olvidaste tu contraseña?
-            </button>
+            <div className="form-link-row">
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setInfo("");
+                  setMode("forgot");
+                }}
+                className="link-btn"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
           )}
 
-          {error && (
-            <p className="text-center text-sm text-red-500">{error}</p>
-          )}
-          {info && (
-            <p className="text-center text-sm text-[#0369a1]">{info}</p>
-          )}
+          {error && <p className="form-message form-message-error">{error}</p>}
+          {info && <p className="form-message form-message-info">{info}</p>}
 
           <motion.button
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.97 }}
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded-xl bg-[#0f172a] px-6 py-3 text-base font-semibold text-white shadow-md transition hover:opacity-90 disabled:opacity-50"
+            className="btn btn-primary btn-block"
           >
             {loading && "Un momento..."}
             {!loading && mode === "login" && "Ingresar"}
@@ -157,33 +165,37 @@ export default function LoginPage() {
         </form>
 
         {mode !== "forgot" && (
-          <button
-            type="button"
-            onClick={() => {
-              setError("");
-              setInfo("");
-              setMode(mode === "login" ? "register" : "login");
-            }}
-            className="mt-6 w-full text-center text-sm text-[#0f172a]/70 underline underline-offset-2"
-          >
-            {mode === "login"
-              ? "¿No tienes cuenta? Crea una"
-              : "¿Ya tienes cuenta? Inicia sesión"}
-          </button>
+          <div className="form-switch">
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setInfo("");
+                setMode(mode === "login" ? "register" : "login");
+              }}
+              className="link-btn"
+            >
+              {mode === "login"
+                ? "¿No tienes cuenta? Crea una"
+                : "¿Ya tienes cuenta? Inicia sesión"}
+            </button>
+          </div>
         )}
 
         {mode === "forgot" && (
-          <button
-            type="button"
-            onClick={() => {
-              setError("");
-              setInfo("");
-              setMode("login");
-            }}
-            className="mt-6 w-full text-center text-sm text-[#0f172a]/70 underline underline-offset-2"
-          >
-            Volver a iniciar sesión
-          </button>
+          <div className="form-switch">
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setInfo("");
+                setMode("login");
+              }}
+              className="link-btn"
+            >
+              Volver a iniciar sesión
+            </button>
+          </div>
         )}
       </motion.div>
     </main>
