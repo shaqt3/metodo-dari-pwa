@@ -1,10 +1,11 @@
 // Edge Function: admin-users
 // Se despliega en Supabase (Dashboard > Edge Functions), NO se ejecuta en el navegador.
-// Permite listar y eliminar usuarios, pero solo si quien llama es el email del entrenador.
+// Permite listar y eliminar usuarios, pero solo si quien llama es uno de los
+// emails de entrenador/a.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const TRAINER_EMAIL = "darinelarias22@gmail.com"; // debe coincidir con lib/config.js
+const TRAINER_EMAILS = ["darinelarias22@gmail.com", "angeddgg@gmail.com"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +27,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Cliente "de usuario" para averiguar quién está llamando
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL"),
       Deno.env.get("SUPABASE_ANON_KEY"),
@@ -37,14 +37,13 @@ Deno.serve(async (req) => {
       data: { user },
     } = await userClient.auth.getUser();
 
-    if (!user || user.email !== TRAINER_EMAIL) {
+    if (!user || !TRAINER_EMAILS.includes(user.email)) {
       return new Response(JSON.stringify({ error: "No autorizado" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Cliente "admin" con la service role key (solo existe aquí, nunca en el navegador)
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL"),
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -57,7 +56,7 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       const users = data.users
-        .filter((u) => u.email !== TRAINER_EMAIL)
+        .filter((u) => !TRAINER_EMAILS.includes(u.email))
         .map((u) => ({
           id: u.id,
           email: u.email,
@@ -72,13 +71,10 @@ Deno.serve(async (req) => {
 
     if (action === "delete") {
       if (!userId) {
-        return new Response(
-          JSON.stringify({ error: "Falta userId" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+        return new Response(JSON.stringify({ error: "Falta userId" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       const { error } = await adminClient.auth.admin.deleteUser(userId);
       if (error) throw error;
