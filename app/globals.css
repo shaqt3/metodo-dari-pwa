@@ -1145,6 +1145,320 @@ img {
   display: block;
 }
 
+/* ============ EXERCISE ANIMATIONS ============ */
+.exercise-anim {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 140px;
+  margin: 0 auto;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exercise-anim-svg {
+  width: 80%;
+  height: 80%;
+}
+
+.exercise-anim-body {
+  transform-origin: 60px 60px;
+}
+
+/* squat: baja y sube todo el cuerpo doblando piernas */
+.exercise-anim-squat .exercise-anim-body {
+  animation: squat-move 1.6s ease-in-out infinite;
+}
+@keyframes squat-move {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(14px) scaleY(0.85); }
+}
+
+/* press: los brazos suben y bajan */
+.exercise-anim-press .exercise-anim-arm-l,
+.exercise-anim-press .exercise-anim-arm-r {
+  animation: press-move 1.4s ease-in-out infinite;
+  transform-origin: 60px 44px;
+}
+@keyframes press-move {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-35deg); }
+}
+
+/* pull: los brazos se flexionan hacia el cuerpo */
+.exercise-anim-pull .exercise-anim-arm-l { transform-origin: 60px 44px; animation: pull-move-l 1.3s ease-in-out infinite; }
+.exercise-anim-pull .exercise-anim-arm-r { transform-origin: 60px 44px; animation: pull-move-r 1.3s ease-in-out infinite; }
+@keyframes pull-move-l {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(40deg); }
+}
+@keyframes pull-move-r {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* core: mantiene posición con un pulso suave */
+.exercise-anim-core .exercise-anim-body {
+  animation: core-pulse 1.8s ease-in-out infinite;
+}
+@keyframes core-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* cardio: salto/rebote más enérgico */
+.exercise-anim-cardio .exercise-anim-body {
+  animation: cardio-move 0.7s ease-in-out infinite;
+}
+@keyframes cardio-move {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  50% { transform: translateY(-10px) scaleX(1.08); }
+}
+
+/* ============ EXERCISE LIBRARY ============ */
+.exercise-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 900px;
+  margin-bottom: 20px;
+}
+
+.filter-chip {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--dark-20);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark-70);
+}
+
+.filter-chip.active {
+  background: var(--dark);
+  color: var(--white);
+  border-color: var(--dark);
+}
+
+.exercise-grid {
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .exercise-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.exercise-card {
+  background: var(--white);
+  border: 1px solid var(--dark-10);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  text-align: center;
+}
+
+.exercise-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 12px;
+}
+
+.exercise-card .exercise-muscle {
+  font-size: 12px;
+  color: var(--dark-60);
+  margin-top: 2px;
+}
+
+.exercise-card p.exercise-desc {
+  font-size: 12px;
+  color: var(--dark-70);
+  margin-top: 8px;
+  text-align: left;
+}
+
+/* ============ ACCORDION / SEARCH ============ */
+.search-input-wrap {
+  max-width: 400px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.accordion-item {
+  border: 1px solid var(--dark-10);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  overflow: hidden;
+  max-width: 900px;
+}
+
+.accordion-summary {
+  padding: 16px 20px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-body {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--dark-10);
+  padding-top: 16px;
+}
+
+.subnav {
+  display: flex;
+  gap: 8px;
+  max-width: 900px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--dark-10);
+  overflow-x: auto;
+}
+
+.subnav button {
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark-60);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  margin-right: 16px;
+}
+
+.subnav button.active {
+  color: var(--dark);
+  border-color: var(--light);
+}
+
+/* ============ CALENDAR ============ */
+.week-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  max-width: 900px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 700px) {
+  .week-calendar {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  }
+}
+
+.day-cell {
+  border: 1.5px solid var(--dark-10);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  text-align: center;
+  cursor: pointer;
+  min-height: 68px;
+}
+
+.day-cell.has-content {
+  border-color: var(--light);
+  background: var(--light-soft);
+}
+
+.day-cell.selected {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: var(--white);
+}
+
+.day-cell .day-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.day-cell .day-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--light);
+  margin: 6px auto 0;
+}
+
+.day-cell.selected .day-dot {
+  background: var(--white);
+}
+
+/* ============ NUTRITION ============ */
+.diet-meal-group {
+  margin-bottom: 16px;
+}
+
+.diet-meal-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark-70);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.diet-food-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--dark-10);
+  font-size: 13px;
+}
+
+.allergen-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  margin-left: 6px;
+}
+
+.allergy-warning {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* ============ REST CHALLENGE BANNER ============ */
+.rest-banner {
+  max-width: 900px;
+  background: var(--light-soft);
+  border: 1.5px solid var(--light);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.rest-banner h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rest-banner p {
+  font-size: 13px;
+  color: var(--dark-70);
+  margin-bottom: 14px;
+}
+
 /* ============ MISC ============ */
 .loading-screen {
   min-height: 100vh;

@@ -19,28 +19,16 @@ import {
   Trophy,
   Camera,
   CheckCircle2,
+  Utensils,
+  Footprints,
+  Search,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { TRAINER_EMAILS, GYM_ZONES } from "@/lib/config";
+import { TRAINER_EMAILS } from "@/lib/config";
 import { weightComparison, distanceComparison } from "@/lib/funCompare";
-
-function getYoutubeEmbedUrl(url) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    let id = "";
-    if (u.hostname.includes("youtu.be")) {
-      id = u.pathname.slice(1);
-    } else if (u.searchParams.get("v")) {
-      id = u.searchParams.get("v");
-    } else if (u.pathname.includes("/embed/")) {
-      return url;
-    }
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  } catch {
-    return null;
-  }
-}
+import ExerciseLibrary from "./components/ExerciseLibrary";
+import RoutineBuilder from "./components/RoutineBuilder";
+import Nutrition from "./components/Nutrition";
 
 function toDateStr(d) {
   return new Date(d).toISOString().slice(0, 10);
@@ -69,6 +57,16 @@ function computeStreak(dateStrings) {
   return streak;
 }
 
+// Días completos sin registrar nada desde el último registro.
+function gapDaysSinceLastLog(dateStrings) {
+  if (!dateStrings.length) return 0;
+  const sorted = [...dateStrings].sort().reverse();
+  const lastLog = new Date(sorted[0]);
+  const today = new Date();
+  const diffMs = new Date(toDateStr(today)) - new Date(toDateStr(lastLog));
+  return Math.floor(diffMs / 86400000);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [userId, setUserId] = useState(null);
@@ -76,6 +74,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("home");
   const [streak, setStreak] = useState(0);
+  const [gapDays, setGapDays] = useState(0);
   const isTrainer = TRAINER_EMAILS.includes(userEmail);
 
   useEffect(() => {
@@ -104,7 +103,9 @@ export default function DashboardPage() {
         .from("workout_logs")
         .select("log_date")
         .eq("user_id", userId);
-      setStreak(computeStreak((data || []).map((d) => d.log_date)));
+      const dates = (data || []).map((d) => d.log_date);
+      setStreak(computeStreak(dates));
+      setGapDays(gapDaysSinceLastLog(dates));
     };
     loadStreak();
   }, [userId, activeTab]);
@@ -119,7 +120,9 @@ export default function DashboardPage() {
 
   const navItems = [
     { id: "home", label: "Home", icon: Home },
-    { id: "rutinas", label: "Rutinas", icon: Dumbbell },
+    { id: "ejercicios", label: "Ejercicios", icon: Dumbbell },
+    { id: "rutinas", label: "Rutinas", icon: Calendar },
+    { id: "alimentacion", label: "Alimentación", icon: Utensils },
     { id: "retos", label: "Retos", icon: Trophy },
     { id: "progreso", label: "Progreso", icon: TrendingUp },
     ...(isTrainer
@@ -191,6 +194,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+
             <div className="stat-grid">
               <div className="stat-card">
                 <div className="stat-icon">
@@ -225,22 +232,43 @@ export default function DashboardPage() {
             <div className="content-card">
               <h2>Bienvenido a El Método Dari</h2>
               <p>
-                Consulta tus rutinas, apunta tu progreso y anímate con los
-                retos. Todo lo que hagas aquí construye tu racha.
+                Consulta tus rutinas, tus dietas, apunta tu progreso y
+                anímate con los retos. Todo lo que hagas aquí construye tu
+                racha.
               </p>
             </div>
           </>
         )}
 
+        {activeTab === "ejercicios" && (
+          <ExerciseLibrary isTrainer={isTrainer} />
+        )}
+
         {activeTab === "rutinas" && (
-          <RoutinesSection userId={userId} isTrainer={isTrainer} />
+          <RoutineBuilder userId={userId} isTrainer={isTrainer} />
+        )}
+
+        {activeTab === "alimentacion" && (
+          <Nutrition userId={userId} isTrainer={isTrainer} />
         )}
 
         {activeTab === "retos" && (
-          <ChallengesSection userId={userId} isTrainer={isTrainer} />
+          <>
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+            <ChallengesSection userId={userId} isTrainer={isTrainer} />
+          </>
         )}
 
-        {activeTab === "progreso" && <ProgressSection userId={userId} />}
+        {activeTab === "progreso" && (
+          <>
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+            <ProgressSection userId={userId} streak={streak} />
+          </>
+        )}
 
         {activeTab === "usuarios" && isTrainer && <TrainerUsersPanel />}
 
@@ -252,6 +280,7 @@ export default function DashboardPage() {
                 <p>{userEmail}</p>
               </div>
             </div>
+            <ProfileSection userId={userId} />
             <div className="content-card">
               <button onClick={handleLogout} className="btn btn-outline">
                 <LogOut size={16} />
@@ -264,7 +293,7 @@ export default function DashboardPage() {
 
       {/* BOTTOM NAV (mobile) */}
       <nav className="bottom-nav">
-        {navItems.map(({ id, label, icon: Icon }) => (
+        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
@@ -280,265 +309,51 @@ export default function DashboardPage() {
 }
 
 /* ============================================================
-   RUTINAS
+   RETO DE DESCANSO ACTIVO (cuando se pierde más de 1 día)
 ============================================================ */
-function RoutinesSection({ userId, isTrainer }) {
-  const [routines, setRoutines] = useState([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [users, setUsers] = useState([]);
-
-  const fetchRoutines = async () => {
-    setLoadingData(true);
-    const { data } = await supabase
-      .from("routines")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setRoutines(data || []);
-    setLoadingData(false);
-  };
-
-  const fetchUsers = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    const { data } = await supabase.functions.invoke("admin-users", {
-      body: { action: "list" },
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setUsers(data?.users || []);
-  };
-
-  useEffect(() => {
-    fetchRoutines();
-    if (isTrainer) fetchUsers();
-  }, [isTrainer]);
-
-  return (
-    <>
-      <div className="section-header">
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Rutinas</h1>
-          <p style={{ fontSize: 13, color: "var(--dark-60)", marginTop: 2 }}>
-            Entrenamiento funcional y de máquinas
-          </p>
-        </div>
-        {isTrainer && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="btn btn-primary btn-sm"
-          >
-            <Plus size={16} />
-            Añadir rutina
-          </button>
-        )}
-      </div>
-
-      {loadingData && (
-        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
-      )}
-
-      {!loadingData && routines.length === 0 && (
-        <div className="content-card">
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Dumbbell size={22} color="#38bdf8" />
-            </div>
-            <h3>Todavía no hay rutinas</h3>
-            <p>
-              {isTrainer
-                ? 'Pulsa "Añadir rutina" para crear la primera.'
-                : "Cuando tu entrenador te asigne una rutina, aparecerá aquí."}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {routines.map((r) => {
-        const embedUrl = getYoutubeEmbedUrl(r.youtube_url);
-        return (
-          <div key={r.id} className="content-card routine-card">
-            <div className="routine-card-head">
-              <div>
-                <h3>{r.title}</h3>
-                <div className="routine-meta">
-                  {r.zone || "Sin zona especificada"}
-                  {r.user_id === null ? " · Para todos" : ""}
-                </div>
-              </div>
-              <span className="badge">
-                {r.type === "funcional" && "Funcional"}
-                {r.type === "maquinas" && "Máquinas"}
-                {r.type === "pesas" && "Pesas"}
-                {r.type === "cardio" && "Cardio"}
-              </span>
-            </div>
-
-            {embedUrl && (
-              <div className="video-wrap">
-                <iframe
-                  src={embedUrl}
-                  title={r.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
-
-            {r.notes && <div className="routine-notes">{r.notes}</div>}
-          </div>
-        );
-      })}
-
-      {showForm && (
-        <NewRoutineModal
-          users={users}
-          onClose={() => setShowForm(false)}
-          onCreated={() => {
-            setShowForm(false);
-            fetchRoutines();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function NewRoutineModal({ users, onClose, onCreated }) {
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState("funcional");
-  const [zone, setZone] = useState(GYM_ZONES[0]);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [notes, setNotes] = useState("");
-  const [targetUser, setTargetUser] = useState("all");
+function RestChallengeBanner({ userId, onLogged }) {
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleLog = async () => {
     setSaving(true);
-    setError("");
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const trainerEmail = sessionData?.session?.user?.email;
-
-    const { error: insertError } = await supabase.from("routines").insert({
-      title,
-      type,
-      zone,
-      youtube_url: youtubeUrl || null,
-      notes: notes || null,
-      user_id: targetUser === "all" ? null : targetUser,
-      created_by: trainerEmail,
+    await supabase.from("workout_logs").insert({
+      user_id: userId,
+      kind: "cardio",
+      log_date: toDateStr(new Date()),
+      distance_km: 9, // aprox. 12.000 pasos
     });
-
     setSaving(false);
-
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-
-    onCreated();
+    setDone(true);
+    onLogged();
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Nueva rutina</h2>
-          <button onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="field-label">Título</label>
-            <input
-              required
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej: Circuito funcional piernas"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Tipo</label>
-            <select
-              className="select"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            >
-              <option value="funcional">Funcional</option>
-              <option value="maquinas">Máquinas</option>
-              <option value="pesas">Pesas</option>
-              <option value="cardio">Cardio</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Zona / equipamiento</label>
-            <select
-              className="select"
-              value={zone}
-              onChange={(e) => setZone(e.target.value)}
-            >
-              {GYM_ZONES.map((z) => (
-                <option key={z} value={z}>
-                  {z}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Vídeo de YouTube (opcional)</label>
-            <input
-              className="input"
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Notas</label>
-            <textarea
-              className="textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Series, repeticiones, indicaciones..."
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Asignar a</label>
-            <select
-              className="select"
-              value={targetUser}
-              onChange={(e) => setTargetUser(e.target.value)}
-            >
-              <option value="all">Todos los usuarios</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.email}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {error && <p className="form-message form-message-error">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn btn-primary btn-block"
-          >
-            {saving ? "Guardando..." : "Crear rutina"}
-          </button>
-        </form>
+  if (done) {
+    return (
+      <div className="rest-banner">
+        <span className="completed-tag">
+          <CheckCircle2 size={16} />
+          ¡Reto de descanso activo completado! Tu racha sigue viva.
+        </span>
       </div>
+    );
+  }
+
+  return (
+    <div className="rest-banner">
+      <h3>Llevas unos días sin entrenar</h3>
+      <p>
+        No pasa nada, un día de descanso está bien. Para no perder el
+        ritmo, hoy tienes un reto de descanso activo: anda 12.000 pasos.
+      </p>
+      <button
+        onClick={handleLog}
+        disabled={saving}
+        className="btn btn-primary btn-sm"
+      >
+        <Footprints size={15} />
+        {saving ? "Guardando..." : "Ya he andado 12.000 pasos"}
+      </button>
     </div>
   );
 }
@@ -604,7 +419,7 @@ function ChallengesSection({ userId, isTrainer }) {
             <p>
               {isTrainer
                 ? 'Pulsa "Crear reto" para añadir el primero.'
-                : "Pronto tu entrenador añadirá retos aquí."}
+                : "Pronto tu entrenadora añadirá retos aquí."}
             </p>
           </div>
         </div>
@@ -837,20 +652,32 @@ function NewChallengeModal({ onClose, onCreated }) {
 /* ============================================================
    PROGRESO
 ============================================================ */
-function ProgressSection({ userId }) {
+function ProgressSection({ userId, streak }) {
   const [kind, setKind] = useState("peso");
   const [value, setValue] = useState("");
   const [logs, setLogs] = useState([]);
   const [saving, setSaving] = useState(false);
   const [comparison, setComparison] = useState(null);
   const [error, setError] = useState("");
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
   const fetchLogs = async () => {
-    const { data } = await supabase
+    setLoadingLogs(true);
+    const { data, error: fetchError } = await supabase
       .from("workout_logs")
       .select("*")
       .eq("user_id", userId)
       .order("log_date", { ascending: false });
+
+    setLoadingLogs(false);
+
+    if (fetchError) {
+      setError(
+        "No se pudieron cargar tus registros. Comprueba que la tabla workout_logs exista en Supabase (ejecuta supabase/sql/setup.sql)."
+      );
+      return;
+    }
+    setError("");
     setLogs(data || []);
   };
 
@@ -861,7 +688,10 @@ function ProgressSection({ userId }) {
   const totalFor = (k) =>
     logs
       .filter((l) => l.kind === k)
-      .reduce((sum, l) => sum + Number(l[k === "peso" ? "weight_kg" : "distance_km"] || 0), 0);
+      .reduce(
+        (sum, l) => sum + Number(l[k === "peso" ? "weight_kg" : "distance_km"] || 0),
+        0
+      );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -888,8 +718,7 @@ function ProgressSection({ userId }) {
       return;
     }
 
-    const newTotal =
-      totalFor(kind) + Number(value);
+    const newTotal = totalFor(kind) + Number(value);
 
     setComparison(
       kind === "peso" ? weightComparison(newTotal) : distanceComparison(newTotal)
@@ -967,19 +796,43 @@ function ProgressSection({ userId }) {
         <p>
           Distancia recorrida: <strong>{totalFor("cardio").toLocaleString("es-ES")} km</strong>
         </p>
+        <p style={{ marginTop: 8 }}>
+          Racha actual: <strong>{streak} {streak === 1 ? "día" : "días"}</strong>
+        </p>
       </div>
+
+      {loadingLogs && (
+        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando historial...</p>
+      )}
+
+      {!loadingLogs && logs.length > 0 && (
+        <div className="content-card">
+          <h2>Historial reciente</h2>
+          <div style={{ marginTop: 10 }}>
+            {logs.slice(0, 10).map((l) => (
+              <div key={l.id} className="diet-food-row">
+                <span>{l.log_date}</span>
+                <span>
+                  {l.kind === "peso" ? `${l.weight_kg} kg` : `${l.distance_km} km`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 /* ============================================================
-   USUARIOS (entrenador/a)
+   USUARIOS (entrenador/a) — con buscador y alergias
 ============================================================ */
 function TrainerUsersPanel() {
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [query, setQuery] = useState("");
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -1041,6 +894,10 @@ function TrainerUsersPanel() {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   };
 
+  const filtered = users.filter((u) =>
+    u.email.toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <>
       <div className="app-topbar">
@@ -1048,6 +905,15 @@ function TrainerUsersPanel() {
           <h1>Usuarios</h1>
           <p>Gestiona las cuentas registradas en la app</p>
         </div>
+      </div>
+
+      <div className="search-input-wrap">
+        <input
+          className="input"
+          placeholder="Buscar por email..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
       <div className="content-card">
@@ -1059,30 +925,161 @@ function TrainerUsersPanel() {
 
         {error && <p className="form-message form-message-error">{error}</p>}
 
-        {!loadingUsers && !error && users.length === 0 && (
+        {!loadingUsers && !error && filtered.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon">
               <Users size={22} color="#38bdf8" />
             </div>
-            <h3>Todavía no hay usuarios registrados</h3>
-            <p>Cuando alguien se registre en la app, aparecerá aquí.</p>
+            <h3>No hay usuarios que coincidan</h3>
+            <p>Prueba con otro término de búsqueda.</p>
           </div>
         )}
 
-        {users.map((u) => (
-          <div key={u.id} className="user-row">
-            <span className="user-row-email">{u.email}</span>
-            <button
-              onClick={() => handleDelete(u.id, u.email)}
-              disabled={deletingId === u.id}
-              className="btn btn-danger-outline btn-sm"
-            >
-              <Trash2 size={14} />
-              {deletingId === u.id ? "..." : "Eliminar"}
-            </button>
-          </div>
+        {filtered.map((u) => (
+          <UserRow
+            key={u.id}
+            user={u}
+            deleting={deletingId === u.id}
+            onDelete={() => handleDelete(u.id, u.email)}
+          />
         ))}
       </div>
     </>
+  );
+}
+
+function UserRow({ user, deleting, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [allergiesInput, setAllergiesInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const loadAllergies = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("allergies")
+      .eq("id", user.id)
+      .maybeSingle();
+    setAllergiesInput((data?.allergies || []).join(", "));
+    setLoaded(true);
+  };
+
+  const handleToggle = (e) => {
+    setOpen(e.target.open);
+    if (e.target.open && !loaded) loadAllergies();
+  };
+
+  const handleSaveAllergies = async () => {
+    setSaving(true);
+    const allergies = allergiesInput
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    await supabase
+      .from("profiles")
+      .upsert({ id: user.id, allergies, updated_at: new Date().toISOString() });
+
+    setSaving(false);
+  };
+
+  return (
+    <details className="accordion-item" onToggle={handleToggle}>
+      <summary className="accordion-summary">
+        <span>{user.email}</span>
+      </summary>
+      <div className="accordion-body">
+        <div className="form-group">
+          <label className="field-label">
+            Alergias (separadas por comas, ej: gluten, lactosa)
+          </label>
+          <input
+            className="input"
+            value={allergiesInput}
+            onChange={(e) => setAllergiesInput(e.target.value)}
+            placeholder="Sin alergias registradas"
+          />
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={handleSaveAllergies}
+            disabled={saving}
+            className="btn btn-outline btn-sm"
+          >
+            {saving ? "Guardando..." : "Guardar alergias"}
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={deleting}
+            className="btn btn-danger-outline btn-sm"
+          >
+            <Trash2 size={14} />
+            {deleting ? "..." : "Eliminar usuario"}
+          </button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/* ============================================================
+   PERFIL — alergias propias
+============================================================ */
+function ProfileSection({ userId }) {
+  const [allergiesInput, setAllergiesInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("allergies")
+        .eq("id", userId)
+        .maybeSingle();
+      setAllergiesInput((data?.allergies || []).join(", "));
+    };
+    if (userId) load();
+  }, [userId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    const allergies = allergiesInput
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    await supabase
+      .from("profiles")
+      .upsert({ id: userId, allergies, updated_at: new Date().toISOString() });
+
+    setSaving(false);
+    setSaved(true);
+  };
+
+  return (
+    <div className="content-card">
+      <h2>Mis alergias</h2>
+      <p style={{ marginBottom: 14 }}>
+        Las usamos para avisarte si una dieta contiene algo que debas evitar.
+      </p>
+      <div className="form-group">
+        <input
+          className="input"
+          value={allergiesInput}
+          onChange={(e) => setAllergiesInput(e.target.value)}
+          placeholder="Ej: gluten, lactosa, frutos secos"
+        />
+      </div>
+      <button onClick={handleSave} disabled={saving} className="btn btn-outline btn-sm">
+        {saving ? "Guardando..." : "Guardar alergias"}
+      </button>
+      {saved && (
+        <p className="form-message form-message-info" style={{ marginTop: 10 }}>
+          Guardado.
+        </p>
+      )}
+    </div>
   );
 }
