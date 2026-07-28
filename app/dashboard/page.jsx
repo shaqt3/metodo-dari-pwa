@@ -1,739 +1,1084 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabaseClient';
-import { 
-  Dumbbell, UtensilsCrossed, Trophy, TrendingUp, 
-  ChevronRight, Flame, Clock, Plus,
-  ArrowLeft, BookOpen, Camera, CheckCircle
-} from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  Home,
+  Dumbbell,
+  TrendingUp,
+  User,
+  Users,
+  Trash2,
+  LogOut,
+  Calendar,
+  Flame,
+  Target,
+  Plus,
+  X,
+  Trophy,
+  Camera,
+  CheckCircle2,
+  Utensils,
+  Footprints,
+  Search,
+} from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { TRAINER_EMAILS } from "@/lib/config";
+import { weightComparison, distanceComparison } from "@/lib/funCompare";
+import ExerciseLibrary from "./components/ExerciseLibrary";
+import RoutineBuilder from "./components/RoutineBuilder";
+import Nutrition from "./components/Nutrition";
 
-export default function Dashboard() {
+function toDateStr(d) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+
+function computeStreak(dateStrings) {
+  if (!dateStrings.length) return 0;
+  const daySet = new Set(dateStrings);
+  const sorted = [...daySet].sort().reverse();
+
+  const today = toDateStr(new Date());
+  const yesterday = toDateStr(new Date(Date.now() - 86400000));
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+
+  let streak = 1;
+  let current = new Date(sorted[0]);
+  for (let i = 1; i < sorted.length; i++) {
+    current.setDate(current.getDate() - 1);
+    const expected = toDateStr(current);
+    if (daySet.has(expected)) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// Días completos sin registrar nada desde el último registro.
+function gapDaysSinceLastLog(dateStrings) {
+  if (!dateStrings.length) return 0;
+  const sorted = [...dateStrings].sort().reverse();
+  const lastLog = new Date(sorted[0]);
+  const today = new Date();
+  const diffMs = new Date(toDateStr(today)) - new Date(toDateStr(lastLog));
+  return Math.floor(diffMs / 86400000);
+}
+
+export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('home');
+  const [userId, setUserId] = useState(null);
+  const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("home");
+  const [streak, setStreak] = useState(0);
+  const [gapDays, setGapDays] = useState(0);
+  const isTrainer = TRAINER_EMAILS.includes(userEmail);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
-      setUser(session.user);
+
+      setUserEmail(session.user.email);
+      setUserId(session.user.id);
       setLoading(false);
     };
-    checkUser();
+
+    checkSession();
   }, [router]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
+  useEffect(() => {
+    if (!userId) return;
+    const loadStreak = async () => {
+      const { data } = await supabase
+        .from("workout_logs")
+        .select("log_date")
+        .eq("user_id", userId);
+      const dates = (data || []).map((d) => d.log_date);
+      setStreak(computeStreak(dates));
+      setGapDays(gapDaysSinceLastLog(dates));
+    };
+    loadStreak();
+  }, [userId, activeTab]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Cargando...</div>
-      </div>
+      <main className="loading-screen">
+        <p>Cargando...</p>
+      </main>
     );
   }
 
+  const navItems = [
+    { id: "home", label: "Home", icon: Home },
+    { id: "ejercicios", label: "Ejercicios", icon: Dumbbell },
+    { id: "rutinas", label: "Rutinas", icon: Calendar },
+    { id: "alimentacion", label: "Alimentación", icon: Utensils },
+    { id: "retos", label: "Retos", icon: Trophy },
+    { id: "progreso", label: "Progreso", icon: TrendingUp },
+    ...(isTrainer
+      ? [{ id: "usuarios", label: "Usuarios", icon: Users }]
+      : []),
+    { id: "perfil", label: "Perfil", icon: User },
+  ];
+
+  const initial = userEmail ? userEmail.charAt(0).toUpperCase() : "?";
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold text-purple-400">El Método Dari</h1>
-          <button onClick={handleLogout} className="text-gray-400 hover:text-white text-sm">
-            Salir
-          </button>
+    <div className="app-shell">
+      {/* SIDEBAR (desktop) */}
+      <aside className="app-sidebar">
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-logo">
+            <Image src="/icon-192.png" alt="El Método Dari" width={34} height={34} />
+          </div>
+          <span>EL MÉTODO DARI</span>
         </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
-        {activeTab === 'home' && <HomeTab setActiveTab={setActiveTab} />}
-        {activeTab === 'exercises' && <ExercisesTab />}
-        {activeTab === 'routines' && <RoutinesTab />}
-        {activeTab === 'nutrition' && <NutritionTab />}
-        {activeTab === 'progress' && <ProgressTab userId={user?.id} />}
-        {activeTab === 'challenges' && <ChallengesTab userId={user?.id} />}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-40">
-        <div className="max-w-4xl mx-auto flex justify-around py-2">
-          {[
-            { id: 'home', icon: '🏠', label: 'Inicio' },
-            { id: 'exercises', icon: '💪', label: 'Ejercicios' },
-            { id: 'routines', icon: '📋', label: 'Rutinas' },
-            { id: 'nutrition', icon: '🥗', label: 'Dieta' },
-            { id: 'progress', icon: '📊', label: 'Progreso' },
-            { id: 'challenges', icon: '🏆', label: 'Retos' },
-          ].map(tab => (
+        <nav className="sidebar-nav">
+          {navItems.map(({ id, label, icon: Icon }) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center p-1 rounded-lg transition ${
-                activeTab === tab.id ? 'text-purple-400' : 'text-gray-500'
-              }`}
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`sidebar-link ${activeTab === id ? "active" : ""}`}
             >
-              <span className="text-lg">{tab.icon}</span>
-              <span className="text-[10px] mt-0.5">{tab.label}</span>
+              <Icon size={18} />
+              {label}
             </button>
           ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button onClick={handleLogout} className="sidebar-link">
+            <LogOut size={18} />
+            Cerrar sesión
+          </button>
         </div>
+      </aside>
+
+      {/* MAIN */}
+      <main className="app-main">
+        {activeTab === "home" && (
+          <>
+            <div className="app-topbar">
+              <div>
+                <h1>¡Hola de nuevo!</h1>
+                <p>{userEmail}</p>
+              </div>
+              <div className="avatar-chip">{initial}</div>
+            </div>
+
+            <div className="streak-banner">
+              <div className="streak-icon">
+                <Flame size={20} color="#38bdf8" />
+              </div>
+              <div>
+                <div className="streak-value">
+                  {streak} {streak === 1 ? "día" : "días"}
+                </div>
+                <div className="streak-label">Racha actual de entrenamiento</div>
+              </div>
+            </div>
+
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+
+            <div className="stat-grid">
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <Calendar size={16} color="#38bdf8" />
+                </div>
+                <div className="stat-value">—</div>
+                <div className="stat-label">Próxima sesión</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <Dumbbell size={16} color="#38bdf8" />
+                </div>
+                <div className="stat-value">—</div>
+                <div className="stat-label">Rutina activa</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <Target size={16} color="#38bdf8" />
+                </div>
+                <div className="stat-value">—</div>
+                <div className="stat-label">Objetivo</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <Trophy size={16} color="#38bdf8" />
+                </div>
+                <div className="stat-value">—</div>
+                <div className="stat-label">Retos completados</div>
+              </div>
+            </div>
+
+            <div className="content-card">
+              <h2>Bienvenido a El Método Dari</h2>
+              <p>
+                Consulta tus rutinas, tus dietas, apunta tu progreso y
+                anímate con los retos. Todo lo que hagas aquí construye tu
+                racha.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTab === "ejercicios" && (
+          <ExerciseLibrary isTrainer={isTrainer} />
+        )}
+
+        {activeTab === "rutinas" && (
+          <RoutineBuilder userId={userId} isTrainer={isTrainer} />
+        )}
+
+        {activeTab === "alimentacion" && (
+          <Nutrition userId={userId} isTrainer={isTrainer} />
+        )}
+
+        {activeTab === "retos" && (
+          <>
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+            <ChallengesSection userId={userId} isTrainer={isTrainer} />
+          </>
+        )}
+
+        {activeTab === "progreso" && (
+          <>
+            {gapDays >= 2 && (
+              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
+            )}
+            <ProgressSection userId={userId} streak={streak} />
+          </>
+        )}
+
+        {activeTab === "usuarios" && isTrainer && <TrainerUsersPanel />}
+
+        {activeTab === "perfil" && (
+          <>
+            <div className="app-topbar">
+              <div>
+                <h1>Perfil</h1>
+                <p>{userEmail}</p>
+              </div>
+            </div>
+            <ProfileSection userId={userId} />
+            <div className="content-card">
+              <button onClick={handleLogout} className="btn btn-outline">
+                <LogOut size={16} />
+                Cerrar sesión
+              </button>
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* BOTTOM NAV (mobile) */}
+      <nav className="bottom-nav">
+        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`bottom-nav-item ${activeTab === id ? "active" : ""}`}
+          >
+            <Icon size={20} />
+            <span>{label}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );
 }
 
-// HOME TAB
-function HomeTab({ setActiveTab }) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">¡Bienvenido!</h2>
-        <p className="text-gray-400">Tu plataforma completa de entrenamiento</p>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <button onClick={() => setActiveTab('exercises')} className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition">
-          <Dumbbell className="text-purple-400 mb-2" size={24} />
-          <h3 className="font-semibold">Ejercicios</h3>
-          <p className="text-gray-400 text-xs">+50 con explicación</p>
-        </button>
-        <button onClick={() => setActiveTab('routines')} className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition">
-          <BookOpen className="text-blue-400 mb-2" size={24} />
-          <h3 className="font-semibold">Rutinas</h3>
-          <p className="text-gray-400 text-xs">20 predefinidas</p>
-        </button>
-        <button onClick={() => setActiveTab('nutrition')} className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition">
-          <UtensilsCrossed className="text-green-400 mb-2" size={24} />
-          <h3 className="font-semibold">Nutrición</h3>
-          <p className="text-gray-400 text-xs">10 dietas con macros</p>
-        </button>
-        <button onClick={() => setActiveTab('challenges')} className="bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition">
-          <Trophy className="text-yellow-400 mb-2" size={24} />
-          <h3 className="font-semibold">Retos</h3>
-          <p className="text-gray-400 text-xs">¡Levanta un coche!</p>
-        </button>
-      </div>
-    </div>
-  );
-}
+/* ============================================================
+   RETO DE DESCANSO ACTIVO (cuando se pierde más de 1 día)
+============================================================ */
+function RestChallengeBanner({ userId, onLogged }) {
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
 
-// EXERCISES TAB
-function ExercisesTab() {
-  const [exercises, setExercises] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [filter, setFilter] = useState('Todos');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadExercises();
-  }, []);
-
-  const loadExercises = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('exercise_library')
-      .select('*')
-      .order('name');
-    
-    if (error) console.error('Error:', error);
-    else setExercises(data || []);
-    setLoading(false);
+  const handleLog = async () => {
+    setSaving(true);
+    await supabase.from("workout_logs").insert({
+      user_id: userId,
+      kind: "cardio",
+      log_date: toDateStr(new Date()),
+      distance_km: 9, // aprox. 12.000 pasos
+    });
+    setSaving(false);
+    setDone(true);
+    onLogged();
   };
 
-  const muscleGroups = ['Todos', ...new Set(exercises.map(e => e.muscle_group))];
-  const filtered = filter === 'Todos' ? exercises : exercises.filter(e => e.muscle_group === filter);
-
-  if (selected) {
+  if (done) {
     return (
-      <div className="space-y-4">
-        <button onClick={() => setSelected(null)} className="flex items-center text-purple-400">
-          <ArrowLeft size={20} className="mr-2" /> Volver
-        </button>
-        
-        <h2 className="text-2xl font-bold">{selected.name}</h2>
-        
-        <div className="flex gap-2 flex-wrap">
-          <span className="bg-purple-600 px-3 py-1 rounded-full text-sm">{selected.muscle_group}</span>
-          <span className="bg-gray-700 px-3 py-1 rounded-full text-sm">{selected.equipment}</span>
-          <span className={`px-3 py-1 rounded-full text-sm ${
-            selected.difficulty === 'principiante' ? 'bg-green-600' :
-            selected.difficulty === 'intermedio' ? 'bg-yellow-600' : 'bg-red-600'
-          }`}>{selected.difficulty}</span>
-        </div>
-
-        <div className="bg-gray-800 rounded-xl p-5 border border-gray-700 space-y-4">
-          <h3 className="text-lg font-semibold text-purple-400 flex items-center gap-2">
-            <BookOpen size={20} /> Cómo hacer este ejercicio
-          </h3>
-          
-          {selected.description ? (
-            <div className="space-y-3">
-              {selected.description.split('\n').map((line, i) => {
-                if (line.startsWith('POSICIÓN INICIAL:')) {
-                  return (
-                    <div key={i} className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
-                      <span className="text-blue-400 font-bold">📍 POSICIÓN INICIAL:</span>
-                      <p className="text-gray-300 mt-1">{line.replace('POSICIÓN INICIAL:', '').trim()}</p>
-                    </div>
-                  );
-                }
-                if (line.startsWith('MOVIMIENTO:')) {
-                  return (
-                    <div key={i} className="bg-green-900/30 border border-green-700 rounded-lg p-3">
-                      <span className="text-green-400 font-bold">🔄 MOVIMIENTO:</span>
-                      <p className="text-gray-300 mt-1">{line.replace('MOVIMIENTO:', '').trim()}</p>
-                    </div>
-                  );
-                }
-                if (line.startsWith('RESPIRACIÓN:')) {
-                  return (
-                    <div key={i} className="bg-cyan-900/30 border border-cyan-700 rounded-lg p-3">
-                      <span className="text-cyan-400 font-bold"> RESPIRACIÓN:</span>
-                      <p className="text-gray-300 mt-1">{line.replace('RESPIRACIÓN:', '').trim()}</p>
-                    </div>
-                  );
-                }
-                if (line.startsWith('ERRORES COMUNES:')) {
-                  return (
-                    <div key={i} className="bg-red-900/30 border border-red-700 rounded-lg p-3">
-                      <span className="text-red-400 font-bold">⚠️ ERRORES COMUNES:</span>
-                      <p className="text-gray-300 mt-1">{line.replace('ERRORES COMUNES:', '').trim()}</p>
-                    </div>
-                  );
-                }
-                if (line.startsWith('MÚSCULOS:')) {
-                  return (
-                    <div key={i} className="bg-purple-900/30 border border-purple-700 rounded-lg p-3">
-                      <span className="text-purple-400 font-bold">🎯 MÚSCULOS:</span>
-                      <p className="text-gray-300 mt-1">{line.replace('MÚSCULOS:', '').trim()}</p>
-                    </div>
-                  );
-                }
-                return line.trim() ? <p key={i} className="text-gray-300">{line}</p> : null;
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-400">Descripción no disponible.</p>
-          )}
-        </div>
+      <div className="rest-banner">
+        <span className="completed-tag">
+          <CheckCircle2 size={16} />
+          ¡Reto de descanso activo completado! Tu racha sigue viva.
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Biblioteca de Ejercicios</h2>
-      
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {muscleGroups.map(group => (
-          <button
-            key={group}
-            onClick={() => setFilter(group)}
-            className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${
-              filter === group ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
-            }`}
-          >
-            {group}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <p className="text-gray-400">Cargando...</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(exercise => (
-            <button
-              key={exercise.id}
-              onClick={() => setSelected(exercise)}
-              className="w-full bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition flex justify-between items-center"
-            >
-              <div>
-                <h3 className="font-semibold">{exercise.name}</h3>
-                <div className="flex gap-2 mt-1">
-                  <span className="text-xs text-gray-400">{exercise.muscle_group}</span>
-                  <span className="text-xs text-gray-500">•</span>
-                  <span className="text-xs text-gray-400">{exercise.equipment}</span>
-                </div>
-              </div>
-              <ChevronRight size={20} className="text-gray-500" />
-            </button>
-          ))}
-          <p className="text-gray-500 text-sm text-center">{filtered.length} ejercicios</p>
-        </div>
-      )}
+    <div className="rest-banner">
+      <h3>Llevas unos días sin entrenar</h3>
+      <p>
+        No pasa nada, un día de descanso está bien. Para no perder el
+        ritmo, hoy tienes un reto de descanso activo: anda 12.000 pasos.
+      </p>
+      <button
+        onClick={handleLog}
+        disabled={saving}
+        className="btn btn-primary btn-sm"
+      >
+        <Footprints size={15} />
+        {saving ? "Guardando..." : "Ya he andado 12.000 pasos"}
+      </button>
     </div>
   );
 }
 
-// ROUTINES TAB
-function RoutinesTab() {
-  const [routines, setRoutines] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [exercises, setExercises] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadRoutines();
-  }, []);
-
-  const loadRoutines = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('routines')
-      .select('*')
-      .order('name');
-    
-    if (error) console.error('Error:', error);
-    else setRoutines(data || []);
-    setLoading(false);
-  };
-
-  const loadRoutineExercises = async (routineId) => {
-    const { data, error } = await supabase
-      .from('routine_exercises')
-      .select(`
-        *,
-        exercise_library (name, muscle_group, equipment, difficulty, description)
-      `)
-      .eq('routine_id', routineId)
-      .order('order_index');
-    
-    if (error) console.error('Error:', error);
-    else setExercises(data || []);
-  };
-
-  const selectRoutine = async (routine) => {
-    setSelected(routine);
-    await loadRoutineExercises(routine.id);
-  };
-
-  if (selected) {
-    return (
-      <div className="space-y-4">
-        <button onClick={() => { setSelected(null); setExercises([]); }} className="flex items-center text-purple-400">
-          <ArrowLeft size={20} className="mr-2" /> Volver
-        </button>
-        
-        <h2 className="text-2xl font-bold">{selected.name}</h2>
-        <p className="text-gray-400">{selected.description}</p>
-        
-        <div className="flex gap-3">
-          <span className={`px-3 py-1 rounded-full text-sm ${
-            selected.difficulty === 'principiante' ? 'bg-green-600' :
-            selected.difficulty === 'intermedio' ? 'bg-yellow-600' : 'bg-red-600'
-          }`}>{selected.difficulty}</span>
-          <span className="bg-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-1">
-            <Clock size={14} /> {selected.duration_minutes} min
-          </span>
-        </div>
-
-        <div className="space-y-3 mt-4">
-          {exercises.map((re, index) => (
-            <div key={re.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-purple-400 text-sm font-mono">{index + 1}.</span>
-                  <h3 className="font-semibold inline ml-2">{re.exercise_library?.name}</h3>
-                  <p className="text-gray-400 text-sm mt-1">
-                    {re.exercise_library?.muscle_group} • {re.exercise_library?.equipment}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold">{re.sets} × {re.reps}</p>
-                  <p className="text-gray-500 text-xs">{re.rest_seconds}s descanso</p>
-                </div>
-              </div>
-              {re.exercise_library?.description && (
-                <details className="mt-2">
-                  <summary className="text-purple-400 text-sm cursor-pointer">📖 Ver cómo se hace</summary>
-                  <div className="mt-2 text-gray-300 text-sm whitespace-pre-line bg-gray-900 rounded-lg p-3">
-                    {re.exercise_library.description}
-                  </div>
-                </details>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Rutinas Predefinidas</h2>
-      <p className="text-gray-400">20 rutinas listas para usar</p>
-      
-      {loading ? (
-        <p className="text-gray-400">Cargando...</p>
-      ) : (
-        <div className="space-y-3">
-          {routines.map(routine => (
-            <button
-              key={routine.id}
-              onClick={() => selectRoutine(routine)}
-              className="w-full bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-purple-500 transition"
-            >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-semibold text-lg">{routine.name}</h3>
-                  <p className="text-gray-400 text-sm">{routine.description}</p>
-                  <div className="flex gap-2 mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      routine.difficulty === 'principiante' ? 'bg-green-600/30 text-green-400' :
-                      routine.difficulty === 'intermedio' ? 'bg-yellow-600/30 text-yellow-400' : 'bg-red-600/30 text-red-400'
-                    }`}>{routine.difficulty}</span>
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock size={12} /> {routine.duration_minutes} min
-                    </span>
-                  </div>
-                </div>
-                <ChevronRight size={20} className="text-gray-500" />
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// NUTRITION TAB
-function NutritionTab() {
-  const [subTab, setSubTab] = useState('foods');
-  const [foods, setFoods] = useState([]);
-  const [diets, setDiets] = useState([]);
-  const [selectedDiet, setSelectedDiet] = useState(null);
-  const [meals, setMeals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [foodFilter, setFoodFilter] = useState('Todos');
-
-  useEffect(() => {
-    loadFoods();
-    loadDiets();
-  }, []);
-
-  const loadFoods = async () => {
-    const { data } = await supabase.from('foods').select('*').order('name');
-    if (data) setFoods(data);
-  };
-
-  const loadDiets = async () => {
-    const { data } = await supabase.from('diets').select('*').order('name');
-    if (data) setDiets(data);
-    setLoading(false);
-  };
-
-  const loadDietMeals = async (dietId) => {
-    const { data } = await supabase
-      .from('meals')
-      .select(`
-        *,
-        meal_foods (
-          quantity,
-          unit,
-          foods (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g)
-        )
-      `)
-      .eq('diet_plan_id', dietId)
-      .order('time');
-    
-    if (data) setMeals(data);
-  };
-
-  const selectDiet = async (diet) => {
-    setSelectedDiet(diet);
-    await loadDietMeals(diet.id);
-  };
-
-  const categories = ['Todos', ...new Set(foods.map(f => f.category))];
-  const filteredFoods = foodFilter === 'Todos' ? foods : foods.filter(f => f.category === foodFilter);
-
-  if (loading) {
-    return <p className="text-gray-400">Cargando nutrición...</p>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Nutrición</h2>
-      
-      <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 text-sm">
-        <p>📊 Alimentos: <strong>{foods.length}</strong></p>
-        <p>📊 Dietas: <strong>{diets.length}</strong></p>
-      </div>
-      
-      <div className="flex gap-2">
-        <button 
-          onClick={() => setSubTab('foods')} 
-          className={`px-4 py-2 rounded-lg ${subTab === 'foods' ? 'bg-purple-600' : 'bg-gray-700'}`}
-        >
-           Alimentos ({foods.length})
-        </button>
-        <button 
-          onClick={() => setSubTab('diets')} 
-          className={`px-4 py-2 rounded-lg ${subTab === 'diets' ? 'bg-purple-600' : 'bg-gray-700'}`}
-        >
-          📋 Dietas ({diets.length})
-        </button>
-      </div>
-
-      {subTab === 'foods' && (
-        <div className="space-y-3">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFoodFilter(cat)}
-                className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ${
-                  foodFilter === cat ? 'bg-green-600' : 'bg-gray-700'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {filteredFoods.map(food => (
-            <div key={food.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold">{food.name}</h3>
-                  <span className="text-xs text-gray-500">{food.category}</span>
-                </div>
-                <span className="text-purple-400 font-bold">{food.calories_per_100g} kcal</span>
-              </div>
-              
-              <div className="grid grid-cols-4 gap-2 mt-3">
-                <div className="bg-red-900/20 rounded-lg p-2 text-center">
-                  <p className="text-red-400 font-bold text-sm">{food.protein_per_100g}g</p>
-                  <p className="text-gray-500 text-[10px]">Proteína</p>
-                </div>
-                <div className="bg-yellow-900/20 rounded-lg p-2 text-center">
-                  <p className="text-yellow-400 font-bold text-sm">{food.carbs_per_100g}g</p>
-                  <p className="text-gray-500 text-[10px]">Carbos</p>
-                </div>
-                <div className="bg-blue-900/20 rounded-lg p-2 text-center">
-                  <p className="text-blue-400 font-bold text-sm">{food.fat_per_100g}g</p>
-                  <p className="text-gray-500 text-[10px]">Grasas</p>
-                </div>
-                <div className="bg-green-900/20 rounded-lg p-2 text-center">
-                  <p className="text-green-400 font-bold text-sm">{food.fiber_per_100g}g</p>
-                  <p className="text-gray-500 text-[10px]">Fibra</p>
-                </div>
-              </div>
-              <p className="text-gray-600 text-[10px] mt-2 text-right">por cada 100g</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {subTab === 'diets' && (
-        <div className="space-y-3">
-          {diets.map(diet => (
-            <button
-              key={diet.id}
-              onClick={() => selectDiet(diet)}
-              className="w-full bg-gray-800 rounded-xl p-4 border border-gray-700 text-left hover:border-green-500 transition"
-            >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-semibold text-lg">{diet.name}</h3>
-                  <p className="text-gray-400 text-sm">{diet.description}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-green-400 font-bold">{diet.daily_calories}</p>
-                  <p className="text-gray-500 text-xs">kcal/día</p>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// PROGRESS TAB
-function ProgressTab({ userId }) {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+/* ============================================================
+   RETOS
+============================================================ */
+function ChallengesSection({ userId, isTrainer }) {
+  const [challenges, setChallenges] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    duration_minutes: '',
-    calories_burned: '',
-    notes: ''
-  });
+
+  const fetchData = async () => {
+    setLoadingData(true);
+    const [{ data: ch }, { data: subs }] = await Promise.all([
+      supabase.from("challenges").select("*").order("created_at", { ascending: false }),
+      supabase.from("challenge_submissions").select("*").eq("user_id", userId),
+    ]);
+    setChallenges(ch || []);
+    setSubmissions(subs || []);
+    setLoadingData(false);
+  };
 
   useEffect(() => {
-    if (userId) loadLogs();
+    if (userId) fetchData();
   }, [userId]);
 
-  const loadLogs = async () => {
-    const { data } = await supabase
-      .from('workout_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .limit(50);
-
-    if (data) setLogs(data);
-    setLoading(false);
-  };
-
-  const saveLog = async () => {
-    if (!formData.duration_minutes) return;
-
-    const { error } = await supabase
-      .from('workout_logs')
-      .insert({
-        user_id: userId,
-        date: formData.date,
-        duration_minutes: parseInt(formData.duration_minutes),
-        calories_burned: formData.calories_burned ? parseInt(formData.calories_burned) : null,
-        notes: formData.notes || null
-      });
-
-    if (error) {
-      alert('Error: ' + error.message);
-    } else {
-      setShowForm(false);
-      setFormData({ date: new Date().toISOString().split('T')[0], duration_minutes: '', calories_burned: '', notes: '' });
-      await loadLogs();
-    }
-  };
+  const isCompleted = (challengeId) =>
+    submissions.some((s) => s.challenge_id === challengeId);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Mi Progreso</h2>
-        <button onClick={() => setShowForm(!showForm)} className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg flex items-center gap-1 text-sm">
-          <Plus size={16} /> Registrar
-        </button>
+    <>
+      <div className="section-header">
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Retos</h1>
+          <p style={{ fontSize: 13, color: "var(--dark-60)", marginTop: 2 }}>
+            En el gimnasio o en casa
+          </p>
+        </div>
+        {isTrainer && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn btn-primary btn-sm"
+          >
+            <Plus size={16} />
+            Crear reto
+          </button>
+        )}
       </div>
 
-      {showForm && (
-        <div className="bg-gray-800 rounded-xl p-4 border border-purple-500 space-y-3">
-          <h3 className="font-semibold">Nuevo Entrenamiento</h3>
-          <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" />
-          <input type="number" placeholder="Duración (min)" value={formData.duration_minutes} onChange={e => setFormData({...formData, duration_minutes: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" />
-          <input type="number" placeholder="Calorías quemadas" value={formData.calories_burned} onChange={e => setFormData({...formData, calories_burned: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" />
-          <textarea placeholder="Notas" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2" rows={2} />
-          <button onClick={saveLog} className="w-full bg-green-600 hover:bg-green-500 py-2 rounded-lg font-semibold">Guardar</button>
+      {loadingData && (
+        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
+      )}
+
+      {!loadingData && challenges.length === 0 && (
+        <div className="content-card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Trophy size={22} color="#38bdf8" />
+            </div>
+            <h3>Todavía no hay retos</h3>
+            <p>
+              {isTrainer
+                ? 'Pulsa "Crear reto" para añadir el primero.'
+                : "Pronto tu entrenadora añadirá retos aquí."}
+            </p>
+          </div>
         </div>
       )}
 
-      {loading ? (
-        <p className="text-gray-400">Cargando...</p>
-      ) : logs.length === 0 ? (
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
-          <TrendingUp size={40} className="mx-auto text-gray-600 mb-3" />
-          <p className="text-gray-400">Aún no tienes registros</p>
-        </div>
+      {challenges.map((c) => (
+        <ChallengeCard
+          key={c.id}
+          challenge={c}
+          userId={userId}
+          completed={isCompleted(c.id)}
+          onCompleted={fetchData}
+        />
+      ))}
+
+      {showForm && (
+        <NewChallengeModal
+          onClose={() => setShowForm(false)}
+          onCreated={() => {
+            setShowForm(false);
+            fetchData();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function ChallengeCard({ challenge, userId, completed, onCompleted }) {
+  const [note, setNote] = useState("");
+  const [file, setFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const locationLabel =
+    challenge.location === "gym"
+      ? "En el gimnasio"
+      : challenge.location === "home"
+      ? "En casa"
+      : "Gimnasio o casa";
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError("");
+
+    let photoUrl = null;
+
+    if (file) {
+      const filePath = `${userId}/${challenge.id}-${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("challenge-photos")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        setSaving(false);
+        setError(
+          "No se pudo subir la foto. Revisa que el bucket 'challenge-photos' exista y sea público."
+        );
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("challenge-photos")
+        .getPublicUrl(filePath);
+      photoUrl = publicUrlData?.publicUrl || null;
+    }
+
+    const { error: insertError } = await supabase
+      .from("challenge_submissions")
+      .insert({
+        challenge_id: challenge.id,
+        user_id: userId,
+        photo_url: photoUrl,
+        note: note || null,
+      });
+
+    setSaving(false);
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    onCompleted();
+  };
+
+  return (
+    <div className="content-card challenge-card">
+      <div className="challenge-card-head">
+        <h3 style={{ fontSize: 16, fontWeight: 700 }}>{challenge.title}</h3>
+        <span className="badge">{locationLabel}</span>
+      </div>
+      {challenge.description && <p>{challenge.description}</p>}
+
+      {completed ? (
+        <span className="completed-tag">
+          <CheckCircle2 size={16} />
+          Completado
+        </span>
       ) : (
-        <div className="space-y-2">
-          {logs.map(log => (
-            <div key={log.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-semibold">{log.date}</p>
-                  <p className="text-gray-400 text-sm">{log.notes || 'Sin notas'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-purple-400 font-bold">{log.duration_minutes} min</p>
-                  {log.calories_burned && <p className="text-orange-400 text-sm">{log.calories_burned} kcal</p>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="challenge-submit-row">
+            <label className="file-input-label">
+              <Camera size={15} />
+              {file ? file.name : "Añadir foto (opcional)"}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            <input
+              className="input"
+              style={{ flex: 1, minWidth: 160 }}
+              placeholder="Nota (opcional, ej: 50 min en bici)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="btn btn-primary btn-sm"
+            >
+              {saving ? "Guardando..." : "Marcar completado"}
+            </button>
+          </div>
+          {error && (
+            <p className="form-message form-message-error" style={{ marginTop: 10 }}>
+              {error}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function ChallengesTab({ userId }) {
-  const [challenges, setChallenges] = useState([]);
-  const [loading, setLoading] = useState(true);
+function NewChallengeModal({ onClose, onCreated }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("ambos");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadChallenges();
-  }, []);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
 
-  const loadChallenges = async () => {
-    console.log('🔍 Cargando retos desde Supabase...');
-    const { data, error } = await supabase
-      .from('challenges')
-      .select('*')
-      .order('target_value');
-    
-    console.log('📦 Retos cargados:', data?.length);
-    console.log(' Error:', error);
-    
-    if (data) setChallenges(data);
-    setLoading(false);
-  };
+    const { data: sessionData } = await supabase.auth.getSession();
+    const trainerEmail = sessionData?.session?.user?.email;
 
-  const getEmoji = (type) => {
-    switch(type) {
-      case 'weight': return '🏋️';
-      case 'distance': return '🏃';
-      case 'consistency': return '🔥';
-      case 'reps': return '💪';
-      case 'calories': return '🔥';
-      case 'workouts': return '';
-      case 'elevation': return '️';
-      default: return '';
+    const { error: insertError } = await supabase.from("challenges").insert({
+      title,
+      description: description || null,
+      location,
+      created_by: trainerEmail,
+    });
+
+    setSaving(false);
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
     }
-  };
 
-  if (loading) {
-    return <p className="text-gray-400">Cargando retos...</p>;
-  }
+    onCreated();
+  };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Retos Épicos</h2>
-      <p className="text-gray-400">¿Has levantado un coche? ¿Un camión? ¿Una ballena blanca?</p>
-      
-      {challenges.length === 0 ? (
-        <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
-          <p className="text-yellow-400">️ No hay retos cargados</p>
-          <p className="text-gray-400 text-sm mt-2">Verifica la consola (F12) para ver errores</p>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Nuevo reto</h2>
+          <button onClick={onClose}>
+            <X size={20} />
+          </button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {challenges.map(challenge => (
-            <div key={challenge.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <div className="flex items-start gap-3">
-                <span className="text-3xl">{getEmoji(challenge.type)}</span>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{challenge.name}</h3>
-                  <p className="text-gray-400 text-sm">{challenge.description}</p>
-                  <div className="flex gap-3 mt-2">
-                    <span className="text-purple-400 text-sm font-bold">
-                      {challenge.target_value.toLocaleString()} {challenge.unit}
-                    </span>
-                    <span className="text-gray-500 text-sm">
-                      {challenge.duration_days} días
-                    </span>
-                  </div>
-                  {challenge.motivation_message && (
-                    <p className="text-yellow-400 text-xs mt-2 italic">
-                      🏆 "{challenge.motivation_message}"
-                    </p>
-                  )}
-                </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="field-label">Título</label>
+            <input
+              required
+              className="input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ej: 50 minutos en bici"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">Descripción</label>
+            <textarea
+              className="textarea"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej: sube una foto de tu ruta en bici de al menos 50 minutos"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">Dónde se puede hacer</label>
+            <select
+              className="select"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            >
+              <option value="ambos">Gimnasio o casa</option>
+              <option value="gym">Solo gimnasio</option>
+              <option value="home">Solo casa</option>
+            </select>
+          </div>
+
+          {error && <p className="form-message form-message-error">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn btn-primary btn-block"
+          >
+            {saving ? "Guardando..." : "Crear reto"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   PROGRESO
+============================================================ */
+function ProgressSection({ userId, streak }) {
+  const [kind, setKind] = useState("peso");
+  const [value, setValue] = useState("");
+  const [logs, setLogs] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [comparison, setComparison] = useState(null);
+  const [error, setError] = useState("");
+  const [loadingLogs, setLoadingLogs] = useState(true);
+
+  const fetchLogs = async () => {
+    setLoadingLogs(true);
+    const { data, error: fetchError } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("log_date", { ascending: false });
+
+    setLoadingLogs(false);
+
+    if (fetchError) {
+      setError(
+        "No se pudieron cargar tus registros. Comprueba que la tabla workout_logs exista en Supabase (ejecuta supabase/sql/setup.sql)."
+      );
+      return;
+    }
+    setError("");
+    setLogs(data || []);
+  };
+
+  useEffect(() => {
+    if (userId) fetchLogs();
+  }, [userId]);
+
+  const totalFor = (k) =>
+    logs
+      .filter((l) => l.kind === k)
+      .reduce(
+        (sum, l) => sum + Number(l[k === "peso" ? "weight_kg" : "distance_km"] || 0),
+        0
+      );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setComparison(null);
+
+    const payload = {
+      user_id: userId,
+      kind,
+      log_date: toDateStr(new Date()),
+      weight_kg: kind === "peso" ? Number(value) : null,
+      distance_km: kind === "cardio" ? Number(value) : null,
+    };
+
+    const { error: insertError } = await supabase
+      .from("workout_logs")
+      .insert(payload);
+
+    setSaving(false);
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    const newTotal = totalFor(kind) + Number(value);
+
+    setComparison(
+      kind === "peso" ? weightComparison(newTotal) : distanceComparison(newTotal)
+    );
+
+    setValue("");
+    fetchLogs();
+  };
+
+  return (
+    <>
+      <div className="app-topbar">
+        <div>
+          <h1>Progreso</h1>
+          <p>Registra tus entrenamientos de peso y cardio</p>
+        </div>
+      </div>
+
+      <div className="content-card progress-form">
+        <form onSubmit={handleSubmit}>
+          <div className="type-toggle">
+            <button
+              type="button"
+              className={kind === "peso" ? "active" : ""}
+              onClick={() => setKind("peso")}
+            >
+              Día de peso
+            </button>
+            <button
+              type="button"
+              className={kind === "cardio" ? "active" : ""}
+              onClick={() => setKind("cardio")}
+            >
+              Día de cardio
+            </button>
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">
+              {kind === "peso"
+                ? "Kg totales levantados hoy"
+                : "Km recorridos hoy (correr, andar o bici)"}
+            </label>
+            <input
+              required
+              type="number"
+              min="0"
+              step="0.1"
+              className="input"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={kind === "peso" ? "Ej: 1200" : "Ej: 5.5"}
+            />
+          </div>
+
+          {error && <p className="form-message form-message-error">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn btn-primary btn-block"
+          >
+            {saving ? "Guardando..." : "Registrar"}
+          </button>
+        </form>
+
+        {comparison && <div className="comparison-box">{comparison}</div>}
+      </div>
+
+      <div className="content-card">
+        <h2>Total acumulado</h2>
+        <p style={{ marginTop: 8 }}>
+          Peso levantado: <strong>{totalFor("peso").toLocaleString("es-ES")} kg</strong>
+        </p>
+        <p>
+          Distancia recorrida: <strong>{totalFor("cardio").toLocaleString("es-ES")} km</strong>
+        </p>
+        <p style={{ marginTop: 8 }}>
+          Racha actual: <strong>{streak} {streak === 1 ? "día" : "días"}</strong>
+        </p>
+      </div>
+
+      {loadingLogs && (
+        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando historial...</p>
+      )}
+
+      {!loadingLogs && logs.length > 0 && (
+        <div className="content-card">
+          <h2>Historial reciente</h2>
+          <div style={{ marginTop: 10 }}>
+            {logs.slice(0, 10).map((l) => (
+              <div key={l.id} className="diet-food-row">
+                <span>{l.log_date}</span>
+                <span>
+                  {l.kind === "peso" ? `${l.weight_kg} kg` : `${l.distance_km} km`}
+                </span>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+      )}
+    </>
+  );
+}
+
+/* ============================================================
+   USUARIOS (entrenador/a) — con buscador y alergias
+============================================================ */
+function TrainerUsersPanel() {
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+  const [query, setQuery] = useState("");
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    setError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const { data, error: fnError } = await supabase.functions.invoke(
+      "admin-users",
+      {
+        body: { action: "list" },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    setLoadingUsers(false);
+
+    if (fnError) {
+      setError(
+        "No se pudo cargar la lista de usuarios. Revisa que la función admin-users esté desplegada en Supabase."
+      );
+      return;
+    }
+
+    setUsers(data?.users || []);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleDelete = async (id, email) => {
+    const confirmed = window.confirm(
+      `¿Seguro que quieres eliminar al usuario ${email}? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(id);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const { error: fnError } = await supabase.functions.invoke(
+      "admin-users",
+      {
+        body: { action: "delete", userId: id },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    setDeletingId(null);
+
+    if (fnError) {
+      setError("No se pudo eliminar el usuario. Inténtalo de nuevo.");
+      return;
+    }
+
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  const filtered = users.filter((u) =>
+    u.email.toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <>
+      <div className="app-topbar">
+        <div>
+          <h1>Usuarios</h1>
+          <p>Gestiona las cuentas registradas en la app</p>
+        </div>
+      </div>
+
+      <div className="search-input-wrap">
+        <input
+          className="input"
+          placeholder="Buscar por email..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="content-card">
+        {loadingUsers && (
+          <p style={{ textAlign: "center", fontSize: 13, color: "var(--dark-60)" }}>
+            Cargando usuarios...
+          </p>
+        )}
+
+        {error && <p className="form-message form-message-error">{error}</p>}
+
+        {!loadingUsers && !error && filtered.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Users size={22} color="#38bdf8" />
+            </div>
+            <h3>No hay usuarios que coincidan</h3>
+            <p>Prueba con otro término de búsqueda.</p>
+          </div>
+        )}
+
+        {filtered.map((u) => (
+          <UserRow
+            key={u.id}
+            user={u}
+            deleting={deletingId === u.id}
+            onDelete={() => handleDelete(u.id, u.email)}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function UserRow({ user, deleting, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [allergiesInput, setAllergiesInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const loadAllergies = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("allergies")
+      .eq("id", user.id)
+      .maybeSingle();
+    setAllergiesInput((data?.allergies || []).join(", "));
+    setLoaded(true);
+  };
+
+  const handleToggle = (e) => {
+    setOpen(e.target.open);
+    if (e.target.open && !loaded) loadAllergies();
+  };
+
+  const handleSaveAllergies = async () => {
+    setSaving(true);
+    const allergies = allergiesInput
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    await supabase
+      .from("profiles")
+      .upsert({ id: user.id, allergies, updated_at: new Date().toISOString() });
+
+    setSaving(false);
+  };
+
+  return (
+    <details className="accordion-item" onToggle={handleToggle}>
+      <summary className="accordion-summary">
+        <span>{user.email}</span>
+      </summary>
+      <div className="accordion-body">
+        <div className="form-group">
+          <label className="field-label">
+            Alergias (separadas por comas, ej: gluten, lactosa)
+          </label>
+          <input
+            className="input"
+            value={allergiesInput}
+            onChange={(e) => setAllergiesInput(e.target.value)}
+            placeholder="Sin alergias registradas"
+          />
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={handleSaveAllergies}
+            disabled={saving}
+            className="btn btn-outline btn-sm"
+          >
+            {saving ? "Guardando..." : "Guardar alergias"}
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={deleting}
+            className="btn btn-danger-outline btn-sm"
+          >
+            <Trash2 size={14} />
+            {deleting ? "..." : "Eliminar usuario"}
+          </button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/* ============================================================
+   PERFIL — alergias propias
+============================================================ */
+function ProfileSection({ userId }) {
+  const [allergiesInput, setAllergiesInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("allergies")
+        .eq("id", userId)
+        .maybeSingle();
+      setAllergiesInput((data?.allergies || []).join(", "));
+    };
+    if (userId) load();
+  }, [userId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    const allergies = allergiesInput
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    await supabase
+      .from("profiles")
+      .upsert({ id: userId, allergies, updated_at: new Date().toISOString() });
+
+    setSaving(false);
+    setSaved(true);
+  };
+
+  return (
+    <div className="content-card">
+      <h2>Mis alergias</h2>
+      <p style={{ marginBottom: 14 }}>
+        Las usamos para avisarte si una dieta contiene algo que debas evitar.
+      </p>
+      <div className="form-group">
+        <input
+          className="input"
+          value={allergiesInput}
+          onChange={(e) => setAllergiesInput(e.target.value)}
+          placeholder="Ej: gluten, lactosa, frutos secos"
+        />
+      </div>
+      <button onClick={handleSave} disabled={saving} className="btn btn-outline btn-sm">
+        {saving ? "Guardando..." : "Guardar alergias"}
+      </button>
+      {saved && (
+        <p className="form-message form-message-info" style={{ marginTop: 10 }}>
+          Guardado.
+        </p>
       )}
     </div>
   );
