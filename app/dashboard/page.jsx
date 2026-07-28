@@ -658,7 +658,6 @@ function ProgressTab({ userId }) {
   );
 }
 
-// CHALLENGES TAB
 function ChallengesTab({ userId }) {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -668,7 +667,15 @@ function ChallengesTab({ userId }) {
   }, []);
 
   const loadChallenges = async () => {
-    const { data } = await supabase.from('challenges').select('*').order('target_value');
+    console.log('🔍 Cargando retos desde Supabase...');
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('*')
+      .order('target_value');
+    
+    console.log('📦 Retos cargados:', data?.length);
+    console.log(' Error:', error);
+    
     if (data) setChallenges(data);
     setLoading(false);
   };
@@ -680,19 +687,26 @@ function ChallengesTab({ userId }) {
       case 'consistency': return '🔥';
       case 'reps': return '💪';
       case 'calories': return '🔥';
-      case 'workouts': return '📅';
-      case 'elevation': return '⛰️';
-      default: return '🎯';
+      case 'workouts': return '';
+      case 'elevation': return '️';
+      default: return '';
     }
   };
+
+  if (loading) {
+    return <p className="text-gray-400">Cargando retos...</p>;
+  }
 
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Retos Épicos</h2>
       <p className="text-gray-400">¿Has levantado un coche? ¿Un camión? ¿Una ballena blanca?</p>
       
-      {loading ? (
-        <p className="text-gray-400">Cargando...</p>
+      {challenges.length === 0 ? (
+        <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
+          <p className="text-yellow-400">️ No hay retos cargados</p>
+          <p className="text-gray-400 text-sm mt-2">Verifica la consola (F12) para ver errores</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {challenges.map(challenge => (
