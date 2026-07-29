@@ -75,8 +75,15 @@ export default function ExerciseLibrary({ isTrainer }) {
             <ExerciseAnimation pattern={ex.pattern} />
             <h3>{ex.name}</h3>
             <div className="exercise-muscle">{ex.muscle_group}</div>
-            {ex.description && (
-              <p className="exercise-desc">{ex.description}</p>
+            {ex.description ? (
+              <div className="exercise-desc">
+                <span className="exercise-desc-label">Cómo se hace</span>
+                <p>{ex.description}</p>
+              </div>
+            ) : (
+              <div className="exercise-desc exercise-desc-empty">
+                Todavía no tiene explicación escrita.
+              </div>
             )}
           </div>
         ))}

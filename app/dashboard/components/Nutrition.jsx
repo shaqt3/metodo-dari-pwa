@@ -511,8 +511,13 @@ function FoodsPage({ isTrainer }) {
       {filtered.map((f) => (
         <details key={f.id} className="accordion-item">
           <summary className="accordion-summary">
-            <span>{f.name}</span>
-            <span className="badge">{f.calories_kcal} kcal /100g</span>
+            <div>
+              <div>{f.name}</div>
+              <div className="food-macros-line">
+                {f.calories_kcal} kcal · P {f.protein_g}g · C {f.carbs_g}g · G{" "}
+                {f.fat_g}g
+              </div>
+            </div>
           </summary>
           <div className="accordion-body">
             <div className="diet-food-row">
