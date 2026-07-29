@@ -1,19 +1,33 @@
 -- =========================================================
--- El Método Dari — Script único y definitivo
+-- El Método Dari — Script único y definitivo (v2)
 -- Pega TODO este archivo en Supabase > SQL Editor > New query
--- y dale a "Run". Sustituye a setup.sql, setup2.sql y setup3.sql:
--- a partir de ahora, usa solo este archivo.
+-- y dale a "Run". Sustituye a cualquier script anterior.
 --
--- Es seguro ejecutarlo las veces que quieras: no borra datos
--- que ya tengas, y no duplica nada (usa "if not exists" y
--- "on conflict do nothing" en todo momento).
+-- IMPORTANTE: este script empieza BORRANDO las tablas de la
+-- app (rutinas, ejercicios, alimentos, dietas, retos, progreso,
+-- perfiles) y las vuelve a crear desde cero con la estructura
+-- correcta. Esto es necesario porque en intentos anteriores
+-- (con otra IA) se crearon algunas de estas tablas con una
+-- estructura distinta e incompleta, y eso es lo que está
+-- causando los errores.
 --
--- Arregla el bug que hacía que rutinas, dietas y retos de
--- ejemplo no se guardaran: la columna "type" de "routines" era
--- obligatoria pero ya no se usa (ahora el tipo se define por
--- ejercicio, no por rutina completa), así que la hacía fallar
--- todo el script a la vez.
+-- Es seguro: NO toca tu tabla de usuarios (auth.users), así
+-- que nadie pierde su cuenta ni su contraseña. Solo se borran
+-- datos de ejemplo (ejercicios, dietas, retos) que se vuelven
+-- a crear automáticamente al final de este mismo script.
 -- =========================================================
+
+drop table if exists public.diet_items cascade;
+drop table if exists public.diets cascade;
+drop table if exists public.routine_exercises cascade;
+drop table if exists public.routine_days cascade;
+drop table if exists public.routines cascade;
+drop table if exists public.exercise_library cascade;
+drop table if exists public.challenge_submissions cascade;
+drop table if exists public.challenges cascade;
+drop table if exists public.workout_logs cascade;
+drop table if exists public.foods cascade;
+drop table if exists public.profiles cascade;
 
 -- ============ FUNCIÓN: ¿es entrenador/a? ============
 create or replace function public.is_trainer()
@@ -53,15 +67,6 @@ create table if not exists public.routines (
   created_by text not null,
   created_at timestamptz not null default now()
 );
-
--- Arreglo del bug: quitamos la obligatoriedad de "type" y "zone"
--- si existían de una versión anterior (ya no se usan a este nivel).
-do $$
-begin
-  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='routines' and column_name='type') then
-    alter table public.routines alter column type drop not null;
-  end if;
-end $$;
 
 alter table public.routines enable row level security;
 drop policy if exists "routines_select" on public.routines;
@@ -108,13 +113,6 @@ create table if not exists public.exercise_library (
   video_url text,
   created_at timestamptz not null default now()
 );
-
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_schema='public' and table_name='exercise_library' and column_name='video_url') then
-    alter table public.exercise_library add column video_url text;
-  end if;
-end $$;
 
 alter table public.exercise_library enable row level security;
 drop policy if exists "exercises_select" on public.exercise_library;
