@@ -10,13 +10,18 @@ export default function ExerciseLibrary({ isTrainer }) {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("todos");
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchExercises = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setError("");
+    const { data, error: fetchError } = await supabase
       .from("exercise_library")
       .select("*")
       .order("name");
+    if (fetchError) {
+      setError(fetchError.message);
+    }
     setExercises(data || []);
     setLoading(false);
   };
@@ -64,6 +69,12 @@ export default function ExerciseLibrary({ isTrainer }) {
           </button>
         ))}
       </div>
+
+      {error && (
+        <p className="form-message form-message-error" style={{ marginBottom: 16 }}>
+          Error al cargar: {error}
+        </p>
+      )}
 
       {loading && (
         <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>

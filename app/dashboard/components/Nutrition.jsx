@@ -48,13 +48,18 @@ function DietsPage({ userId, isTrainer }) {
   const [showForm, setShowForm] = useState(false);
   const [users, setUsers] = useState([]);
   const [allergies, setAllergies] = useState([]);
+  const [error, setError] = useState("");
 
   const fetchDiets = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setError("");
+    const { data, error: fetchError } = await supabase
       .from("diets")
       .select("*")
       .order("created_at", { ascending: false });
+    if (fetchError) {
+      setError(fetchError.message);
+    }
     setDiets(data || []);
     setLoading(false);
   };
@@ -98,6 +103,12 @@ function DietsPage({ userId, isTrainer }) {
           </button>
         )}
       </div>
+
+      {error && (
+        <p className="form-message form-message-error" style={{ marginBottom: 16 }}>
+          Error al cargar: {error}
+        </p>
+      )}
 
       {loading && (
         <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
@@ -466,10 +477,18 @@ function FoodsPage({ isTrainer }) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchFoods = async () => {
     setLoading(true);
-    const { data } = await supabase.from("foods").select("*").order("name");
+    setError("");
+    const { data, error: fetchError } = await supabase
+      .from("foods")
+      .select("*")
+      .order("name");
+    if (fetchError) {
+      setError(fetchError.message);
+    }
     setFoods(data || []);
     setLoading(false);
   };
@@ -503,6 +522,12 @@ function FoodsPage({ isTrainer }) {
           </button>
         )}
       </div>
+
+      {error && (
+        <p className="form-message form-message-error" style={{ marginBottom: 16 }}>
+          Error al cargar: {error}
+        </p>
+      )}
 
       {loading && (
         <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>

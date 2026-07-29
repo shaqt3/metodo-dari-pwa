@@ -13,13 +13,18 @@ export default function RoutineBuilder({ userId, isTrainer }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPlan, setShowNewPlan] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchPlans = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setError("");
+    const { data, error: fetchError } = await supabase
       .from("routines")
       .select("*")
       .order("created_at", { ascending: false });
+    if (fetchError) {
+      setError(fetchError.message);
+    }
     setPlans(data || []);
     if (data && data.length > 0 && !selectedPlanId) {
       setSelectedPlanId(data[0].id);
@@ -63,6 +68,12 @@ export default function RoutineBuilder({ userId, isTrainer }) {
           </button>
         )}
       </div>
+
+      {error && (
+        <p className="form-message form-message-error" style={{ marginBottom: 16 }}>
+          Error al cargar: {error}
+        </p>
+      )}
 
       {loading && (
         <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
