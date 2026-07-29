@@ -508,21 +508,21 @@ begin
       select v_day_id, id, 4, '10', 40, 1 from public.exercise_library where name = 'Sentadilla con barra'
       union all select v_day_id, id, 4, '10', 30, 2 from public.exercise_library where name = 'Press de banca'
       union all select v_day_id, id, 3, '12', 25, 3 from public.exercise_library where name = 'Remo en máquina'
-      union all select v_day_id, id, 3, '15', null, 4 from public.exercise_library where name = 'Plancha';
+      union all select v_day_id, id, 3, '15', null::numeric, 4 from public.exercise_library where name = 'Plancha';
 
     insert into public.routine_days (routine_id, day_number, label) values (v_routine_id, 3, 'Día 2 - Full body B') returning id into v_day_id;
     insert into public.routine_exercises (routine_day_id, exercise_id, sets, reps, weight_kg, order_index)
       select v_day_id, id, 4, '10', 50, 1 from public.exercise_library where name = 'Peso muerto con barra'
       union all select v_day_id, id, 3, '12', 20, 2 from public.exercise_library where name = 'Press de hombro'
       union all select v_day_id, id, 3, '12', 20, 3 from public.exercise_library where name = 'Jalón al pecho (lat pulldown)'
-      union all select v_day_id, id, 3, '15', null, 4 from public.exercise_library where name = 'Elevación de piernas';
+      union all select v_day_id, id, 3, '15', null::numeric, 4 from public.exercise_library where name = 'Elevación de piernas';
 
     insert into public.routine_days (routine_id, day_number, label) values (v_routine_id, 5, 'Día 3 - Full body C') returning id into v_day_id;
     insert into public.routine_exercises (routine_day_id, exercise_id, sets, reps, weight_kg, order_index)
       select v_day_id, id, 4, '12', 60, 1 from public.exercise_library where name = 'Prensa de piernas'
       union all select v_day_id, id, 3, '12', 12, 2 from public.exercise_library where name = 'Curl de bíceps'
-      union all select v_day_id, id, 3, '12', null, 3 from public.exercise_library where name = 'Fondos en banco (dips)'
-      union all select v_day_id, id, 3, '20', null, 4 from public.exercise_library where name = 'Abdominales bicicleta';
+      union all select v_day_id, id, 3, '12', null::numeric, 3 from public.exercise_library where name = 'Fondos en banco (dips)'
+      union all select v_day_id, id, 3, '20', null::numeric, 4 from public.exercise_library where name = 'Abdominales bicicleta';
   end if;
 
   insert into public.routines (title, notes, created_by) values
@@ -533,24 +533,24 @@ begin
   if not exists (select 1 from public.routine_days where routine_id = v_routine_id) then
     insert into public.routine_days (routine_id, day_number, label) values (v_routine_id, 2, 'Día 1 - Funcional A') returning id into v_day_id;
     insert into public.routine_exercises (routine_day_id, exercise_id, sets, reps, weight_kg, order_index)
-      select v_day_id, id, 4, '15', null, 1 from public.exercise_library where name = 'Sentadilla'
-      union all select v_day_id, id, 3, '12', null, 2 from public.exercise_library where name = 'Flexiones'
-      union all select v_day_id, id, 3, '30 seg', null, 3 from public.exercise_library where name = 'Plancha'
-      union all select v_day_id, id, 4, '30 seg', null, 4 from public.exercise_library where name = 'Jumping jacks';
+      select v_day_id, id, 4, '15', null::numeric, 1 from public.exercise_library where name = 'Sentadilla'
+      union all select v_day_id, id, 3, '12', null::numeric, 2 from public.exercise_library where name = 'Flexiones'
+      union all select v_day_id, id, 3, '30 seg', null::numeric, 3 from public.exercise_library where name = 'Plancha'
+      union all select v_day_id, id, 4, '30 seg', null::numeric, 4 from public.exercise_library where name = 'Jumping jacks';
 
     insert into public.routine_days (routine_id, day_number, label) values (v_routine_id, 4, 'Día 2 - Funcional B') returning id into v_day_id;
     insert into public.routine_exercises (routine_day_id, exercise_id, sets, reps, weight_kg, order_index)
-      select v_day_id, id, 3, '10', null, 1 from public.exercise_library where name = 'Burpees'
-      union all select v_day_id, id, 3, '12', null, 2 from public.exercise_library where name = 'Zancada'
-      union all select v_day_id, id, 3, '20', null, 3 from public.exercise_library where name = 'Superman'
-      union all select v_day_id, id, 3, '30 seg', null, 4 from public.exercise_library where name = 'Escaladores (mountain climbers)';
+      select v_day_id, id, 3, '10', null::numeric, 1 from public.exercise_library where name = 'Burpees'
+      union all select v_day_id, id, 3, '12', null::numeric, 2 from public.exercise_library where name = 'Zancada'
+      union all select v_day_id, id, 3, '20', null::numeric, 3 from public.exercise_library where name = 'Superman'
+      union all select v_day_id, id, 3, '30 seg', null::numeric, 4 from public.exercise_library where name = 'Escaladores (mountain climbers)';
 
     insert into public.routine_days (routine_id, day_number, label) values (v_routine_id, 6, 'Día 3 - Funcional C') returning id into v_day_id;
     insert into public.routine_exercises (routine_day_id, exercise_id, sets, reps, weight_kg, order_index)
-      select v_day_id, id, 4, '12', null, 1 from public.exercise_library where name = 'Puente de glúteo'
-      union all select v_day_id, id, 3, '10', null, 2 from public.exercise_library where name = 'Sentadilla búlgara'
-      union all select v_day_id, id, 3, '30 seg', null, 3 from public.exercise_library where name = 'Plancha lateral'
-      union all select v_day_id, id, 5, '20 seg', null, 4 from public.exercise_library where name = 'Sprints';
+      select v_day_id, id, 4, '12', null::numeric, 1 from public.exercise_library where name = 'Puente de glúteo'
+      union all select v_day_id, id, 3, '10', null::numeric, 2 from public.exercise_library where name = 'Sentadilla búlgara'
+      union all select v_day_id, id, 3, '30 seg', null::numeric, 3 from public.exercise_library where name = 'Plancha lateral'
+      union all select v_day_id, id, 5, '20 seg', null::numeric, 4 from public.exercise_library where name = 'Sprints';
   end if;
 
 end $$;
