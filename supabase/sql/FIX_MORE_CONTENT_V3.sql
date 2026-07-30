@@ -4,6 +4,13 @@
 -- Seguro de re-ejecutar las veces que quieras.
 -- =========================================================
 
+-- ============ Asegura que existe la columna del día de la semana ============
+-- (por si el script anterior no llegó a crearla del todo)
+alter table public.diet_items add column if not exists day_number int not null default 1;
+alter table public.diet_items drop constraint if exists diet_items_day_number_check;
+alter table public.diet_items add constraint diet_items_day_number_check
+  check (day_number between 1 and 7);
+
 -- ============ Nuevo patrón de animación: bisagra de cadera ============
 alter table public.exercise_library drop constraint if exists exercise_library_pattern_check;
 alter table public.exercise_library add constraint exercise_library_pattern_check

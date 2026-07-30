@@ -1147,6 +1147,7 @@ img {
 
 /* ============ EXERCISE ANIMATIONS ============ */
 .exercise-anim {
+  position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   max-width: 140px;
@@ -1156,112 +1157,20 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
-.exercise-anim-svg {
-  width: 80%;
-  height: 80%;
+.exercise-anim-glow {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  animation: exercise-glow-pulse 2.4s ease-in-out infinite;
 }
 
-.exercise-anim-body {
-  transform-origin: 60px 60px;
-}
-
-/* squat: baja y sube todo el cuerpo doblando piernas */
-.exercise-anim-squat .exercise-anim-body {
-  animation: squat-move 1.6s ease-in-out infinite;
-}
-@keyframes squat-move {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(14px) scaleY(0.85); }
-}
-
-/* press: los brazos suben y bajan */
-.exercise-anim-press .exercise-anim-arm-l,
-.exercise-anim-press .exercise-anim-arm-r {
-  animation: press-move 1.4s ease-in-out infinite;
-  transform-origin: 60px 44px;
-}
-@keyframes press-move {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-35deg); }
-}
-
-/* pull: los brazos se flexionan hacia el cuerpo */
-.exercise-anim-pull .exercise-anim-arm-l { transform-origin: 60px 44px; animation: pull-move-l 1.3s ease-in-out infinite; }
-.exercise-anim-pull .exercise-anim-arm-r { transform-origin: 60px 44px; animation: pull-move-r 1.3s ease-in-out infinite; }
-@keyframes pull-move-l {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(40deg); }
-}
-@keyframes pull-move-r {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-40deg); }
-}
-
-/* core: mantiene posición con un pulso suave */
-.exercise-anim-core .exercise-anim-body {
-  animation: core-pulse 1.8s ease-in-out infinite;
-}
-@keyframes core-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-
-/* cardio: salto/rebote más enérgico */
-.exercise-anim-cardio .exercise-anim-body {
-  animation: cardio-move 0.7s ease-in-out infinite;
-}
-@keyframes cardio-move {
-  0%, 100% { transform: translateY(0) scaleX(1); }
-  50% { transform: translateY(-10px) scaleX(1.08); }
-}
-
-/* lunge: las piernas se abren adelante/atrás alternando */
-.exercise-anim-lunge .exercise-anim-leg-l {
-  animation: lunge-leg-l 1.6s ease-in-out infinite;
-  transform-origin: 60px 72px;
-}
-.exercise-anim-lunge .exercise-anim-leg-r {
-  animation: lunge-leg-r 1.6s ease-in-out infinite;
-  transform-origin: 60px 72px;
-}
-.exercise-anim-lunge .exercise-anim-body {
-  animation: lunge-body 1.6s ease-in-out infinite;
-}
-@keyframes lunge-leg-l {
-  0%, 100% { transform: rotate(-15deg); }
-  50% { transform: rotate(15deg); }
-}
-@keyframes lunge-leg-r {
-  0%, 100% { transform: rotate(15deg); }
-  50% { transform: rotate(-15deg); }
-}
-@keyframes lunge-body {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
-}
-
-/* jump: salto vertical amplio */
-.exercise-anim-jump .exercise-anim-body {
-  animation: jump-move 0.9s cubic-bezier(.4,0,.2,1) infinite;
-}
-@keyframes jump-move {
-  0%, 100% { transform: translateY(0) scaleY(1); }
-  30% { transform: translateY(6px) scaleY(0.9); }
-  60% { transform: translateY(-22px) scaleY(1.05); }
-  100% { transform: translateY(0) scaleY(1); }
-}
-
-/* hinge: flexión de cadera, el torso se inclina hacia adelante
-   (peso muerto, swing, hip thrust) */
-.exercise-anim-hinge .exercise-anim-body {
-  animation: hinge-move 1.6s ease-in-out infinite;
-  transform-origin: 60px 72px;
-}
-@keyframes hinge-move {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-28deg); }
+@keyframes exercise-glow-pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
 }
 
 /* ============ EXERCISE LIBRARY ============ */
