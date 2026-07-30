@@ -27,8 +27,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { TRAINER_EMAILS } from "@/lib/config";
 import { weightComparison, distanceComparison } from "@/lib/funCompare";
 import ExerciseLibrary from "./components/ExerciseLibrary";
-import RoutineBuilder from "./components/RoutineBuilder";
-import Nutrition from "./components/Nutrition";
+import RoutineBuilder, { NewPlanModal } from "./components/RoutineBuilder";
+import Nutrition, { NewDietModal } from "./components/Nutrition";
 
 function toDateStr(d) {
   return new Date(d).toISOString().slice(0, 10);
@@ -953,20 +953,29 @@ function UserRow({ user, deleting, onDelete }) {
   const [allergiesInput, setAllergiesInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [routines, setRoutines] = useState([]);
+  const [diets, setDiets] = useState([]);
+  const [showNewPlan, setShowNewPlan] = useState(false);
+  const [showNewDiet, setShowNewDiet] = useState(false);
 
-  const loadAllergies = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("allergies")
-      .eq("id", user.id)
-      .maybeSingle();
-    setAllergiesInput((data?.allergies || []).join(", "));
+  const singleUserList = [{ id: user.id, email: user.email }];
+
+  const loadEverything = async () => {
+    const [{ data: profile }, { data: userRoutines }, { data: userDiets }] =
+      await Promise.all([
+        supabase.from("profiles").select("allergies").eq("id", user.id).maybeSingle(),
+        supabase.from("routines").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("diets").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      ]);
+    setAllergiesInput((profile?.allergies || []).join(", "));
+    setRoutines(userRoutines || []);
+    setDiets(userDiets || []);
     setLoaded(true);
   };
 
   const handleToggle = (e) => {
     setOpen(e.target.open);
-    if (e.target.open && !loaded) loadAllergies();
+    if (e.target.open && !loaded) loadEverything();
   };
 
   const handleSaveAllergies = async () => {
@@ -1000,7 +1009,7 @@ function UserRow({ user, deleting, onDelete }) {
             placeholder="Sin alergias registradas"
           />
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
           <button
             onClick={handleSaveAllergies}
             disabled={saving}
@@ -1017,7 +1026,71 @@ function UserRow({ user, deleting, onDelete }) {
             {deleting ? "..." : "Eliminar usuario"}
           </button>
         </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span className="field-label" style={{ marginBottom: 0 }}>Rutinas asignadas</span>
+          <button onClick={() => setShowNewPlan(true)} className="btn btn-outline btn-sm">
+            + Asignar rutina
+          </button>
+        </div>
+        {routines.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--dark-60)", marginBottom: 20 }}>
+            Sin rutinas propias asignadas todavía.
+          </p>
+        ) : (
+          <ul style={{ marginBottom: 20 }}>
+            {routines.map((r) => (
+              <li key={r.id} className="user-row" style={{ marginBottom: 8 }}>
+                <span className="user-row-email">{r.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span className="field-label" style={{ marginBottom: 0 }}>Dietas asignadas</span>
+          <button onClick={() => setShowNewDiet(true)} className="btn btn-outline btn-sm">
+            + Asignar dieta
+          </button>
+        </div>
+        {diets.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--dark-60)" }}>
+            Sin dietas propias asignadas todavía.
+          </p>
+        ) : (
+          <ul>
+            {diets.map((d) => (
+              <li key={d.id} className="user-row" style={{ marginBottom: 8 }}>
+                <span className="user-row-email">{d.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+
+      {showNewPlan && (
+        <NewPlanModal
+          users={singleUserList}
+          defaultUserId={user.id}
+          onClose={() => setShowNewPlan(false)}
+          onCreated={() => {
+            setShowNewPlan(false);
+            loadEverything();
+          }}
+        />
+      )}
+
+      {showNewDiet && (
+        <NewDietModal
+          users={singleUserList}
+          defaultUserId={user.id}
+          onClose={() => setShowNewDiet(false)}
+          onCreated={() => {
+            setShowNewDiet(false);
+            loadEverything();
+          }}
+        />
+      )}
     </details>
   );
 }

@@ -130,10 +130,10 @@ export default function RoutineBuilder({ userId, isTrainer }) {
   );
 }
 
-function NewPlanModal({ users, onClose, onCreated }) {
+export function NewPlanModal({ users, defaultUserId, onClose, onCreated }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [targetUser, setTargetUser] = useState("all");
+  const [targetUser, setTargetUser] = useState(defaultUserId || "all");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

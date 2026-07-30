@@ -302,10 +302,10 @@ function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
   );
 }
 
-function NewDietModal({ users, onClose, onCreated }) {
+export function NewDietModal({ users, defaultUserId, onClose, onCreated }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [targetUser, setTargetUser] = useState("template");
+  const [targetUser, setTargetUser] = useState(defaultUserId || "template");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
