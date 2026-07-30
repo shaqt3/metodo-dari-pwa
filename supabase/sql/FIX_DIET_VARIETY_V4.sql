@@ -11,6 +11,19 @@
 delete from public.diet_items
 where diet_id in (select id from public.diets where created_by = 'sistema');
 
+-- Nos aseguramos de que las 8 plantillas existan, por si alguna
+-- no llegó a crearse en un intento anterior.
+insert into public.diets (title, notes, created_by) values
+  ('Dieta ejemplo - Mantenimiento', 'Plan base de ejemplo, ajustable por comida.', 'sistema'),
+  ('Dieta ejemplo - Alta en proteína', 'Plan orientado a entrenamiento de fuerza.', 'sistema'),
+  ('Dieta ejemplo - Pérdida de peso', 'Plan con déficit calórico moderado, saciante y equilibrado.', 'sistema'),
+  ('Dieta ejemplo - Vegetariana', 'Plan sin carne ni pescado, con proteína vegetal.', 'sistema'),
+  ('Dieta ejemplo - Mediterránea', 'Plan equilibrado con aceite de oliva, pescado y legumbres.', 'sistema'),
+  ('Dieta ejemplo - Cetogénica', 'Plan bajo en carbohidratos y alto en grasas saludables.', 'sistema'),
+  ('Dieta ejemplo - Sin gluten', 'Plan pensado para personas con intolerancia al gluten o celiaquía.', 'sistema'),
+  ('Dieta ejemplo - Sin lactosa', 'Plan sin lácteos, apto para intolerancia a la lactosa.', 'sistema')
+on conflict (title) do nothing;
+
 do $$
 declare
   v_diet_id uuid;

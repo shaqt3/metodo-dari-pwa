@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, PersonStanding, Dumbbell, Activity, Zap, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import ExerciseAnimation from "./ExerciseAnimation";
+
+const LEGEND = [
+  { icon: PersonStanding, color: "#38bdf8", label: "Piernas / cadera (sentadilla, zancada, peso muerto...)" },
+  { icon: Dumbbell, color: "#0f172a", label: "Empuje o tirón de brazos/espalda (press, remo, curl...)" },
+  { icon: Activity, color: "#0369a1", label: "Core / mantenimiento (plancha, abdominales...)" },
+  { icon: Zap, color: "#f59e0b", label: "Cardio / salto (burpees, jumping jacks, correr...)" },
+];
 
 export default function ExerciseLibrary({ isTrainer }) {
   const [exercises, setExercises] = useState([]);
@@ -40,7 +47,7 @@ export default function ExerciseLibrary({ isTrainer }) {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>Ejercicios</h1>
           <p style={{ fontSize: 13, color: "var(--dark-60)", marginTop: 2 }}>
-            Biblioteca de ejercicios funcionales y de máquinas
+            Biblioteca de ejercicios funcionales, cardio y de máquinas
           </p>
         </div>
         {isTrainer && (
@@ -58,6 +65,7 @@ export default function ExerciseLibrary({ isTrainer }) {
         {[
           { id: "todos", label: "Todos" },
           { id: "funcional", label: "Funcionales" },
+          { id: "cardio", label: "Cardio" },
           { id: "maquinas", label: "Máquinas y pesas" },
         ].map((c) => (
           <button
@@ -67,6 +75,15 @@ export default function ExerciseLibrary({ isTrainer }) {
           >
             {c.label}
           </button>
+        ))}
+      </div>
+
+      <div className="exercise-legend">
+        {LEGEND.map(({ icon: Icon, color, label }) => (
+          <div key={label} className="exercise-legend-item">
+            <Icon size={15} color={color} strokeWidth={1.8} />
+            <span>{label}</span>
+          </div>
         ))}
       </div>
 
@@ -83,9 +100,30 @@ export default function ExerciseLibrary({ isTrainer }) {
       <div className="exercise-grid">
         {filtered.map((ex) => (
           <div key={ex.id} className="exercise-card">
-            <ExerciseAnimation pattern={ex.pattern} />
+            {ex.photo_url ? (
+              <img
+                src={ex.photo_url}
+                alt={ex.name}
+                className="exercise-photo"
+              />
+            ) : (
+              <ExerciseAnimation pattern={ex.pattern} />
+            )}
             <h3>{ex.name}</h3>
             <div className="exercise-muscle">{ex.muscle_group}</div>
+
+            {ex.video_url && (
+              <a
+                href={ex.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="exercise-video-link"
+              >
+                <PlayCircle size={14} />
+                Ver vídeo de referencia
+              </a>
+            )}
+
             {ex.description ? (
               <div className="exercise-desc">
                 <span className="exercise-desc-label">Cómo se hace</span>
@@ -119,6 +157,8 @@ function NewExerciseModal({ onClose, onCreated }) {
   const [muscleGroup, setMuscleGroup] = useState("");
   const [pattern, setPattern] = useState("squat");
   const [description, setDescription] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -135,6 +175,8 @@ function NewExerciseModal({ onClose, onCreated }) {
         muscle_group: muscleGroup,
         pattern,
         description,
+        video_url: videoUrl || null,
+        photo_url: photoUrl || null,
       });
 
     setSaving(false);
@@ -177,6 +219,7 @@ function NewExerciseModal({ onClose, onCreated }) {
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="funcional">Funcional</option>
+              <option value="cardio">Cardio</option>
               <option value="maquinas">Máquinas y pesas</option>
             </select>
           </div>
@@ -192,21 +235,41 @@ function NewExerciseModal({ onClose, onCreated }) {
           </div>
 
           <div className="form-group">
-            <label className="field-label">Tipo de movimiento (para la animación)</label>
+            <label className="field-label">Tipo de movimiento (para el icono)</label>
             <select
               className="select"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
             >
-              <option value="squat">Flexión de piernas (sentadilla, prensa...)</option>
-              <option value="lunge">Zancada (piernas alternas)</option>
-              <option value="hinge">Bisagra de cadera (peso muerto, swing...)</option>
-              <option value="press">Empuje (press, flexiones...)</option>
-              <option value="pull">Tirón (remo, curl, jalón...)</option>
-              <option value="core">Mantenimiento (plancha...)</option>
-              <option value="cardio">Cardio (burpees, escaladores...)</option>
-              <option value="jump">Salto vertical (jumping jacks, box jump...)</option>
+              <option value="squat">Piernas: flexión (sentadilla, prensa...)</option>
+              <option value="lunge">Piernas: zancada (piernas alternas)</option>
+              <option value="hinge">Cadera: bisagra (peso muerto, swing...)</option>
+              <option value="press">Brazos: empuje (press, flexiones...)</option>
+              <option value="pull">Brazos: tirón (remo, curl, jalón...)</option>
+              <option value="core">Core / mantenimiento (plancha...)</option>
+              <option value="cardio">Cardio (burpees, escaladores, correr...)</option>
+              <option value="jump">Cardio: salto (jumping jacks, box jump...)</option>
             </select>
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">Foto de referencia (URL, opcional)</label>
+            <input
+              className="input"
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">Vídeo de referencia (URL, opcional)</label>
+            <input
+              className="input"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
           </div>
 
           <div className="form-group">

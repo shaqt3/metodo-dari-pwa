@@ -1173,6 +1173,45 @@ img {
   50% { transform: scale(1.05); opacity: 1; }
 }
 
+.exercise-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  max-width: 900px;
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+
+.exercise-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--dark-70);
+}
+
+.exercise-photo {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 140px;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  display: block;
+}
+
+.exercise-video-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0369a1;
+  margin-top: 10px;
+}
+
 /* ============ EXERCISE LIBRARY ============ */
 .exercise-filters {
   display: flex;
