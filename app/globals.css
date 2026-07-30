@@ -1253,6 +1253,17 @@ img {
   100% { transform: translateY(0) scaleY(1); }
 }
 
+/* hinge: flexión de cadera, el torso se inclina hacia adelante
+   (peso muerto, swing, hip thrust) */
+.exercise-anim-hinge .exercise-anim-body {
+  animation: hinge-move 1.6s ease-in-out infinite;
+  transform-origin: 60px 72px;
+}
+@keyframes hinge-move {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-28deg); }
+}
+
 /* ============ EXERCISE LIBRARY ============ */
 .exercise-filters {
   display: flex;

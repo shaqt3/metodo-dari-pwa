@@ -200,6 +200,7 @@ function NewExerciseModal({ onClose, onCreated }) {
             >
               <option value="squat">Flexión de piernas (sentadilla, prensa...)</option>
               <option value="lunge">Zancada (piernas alternas)</option>
+              <option value="hinge">Bisagra de cadera (peso muerto, swing...)</option>
               <option value="press">Empuje (press, flexiones...)</option>
               <option value="pull">Tirón (remo, curl, jalón...)</option>
               <option value="core">Mantenimiento (plancha...)</option>
