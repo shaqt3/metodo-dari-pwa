@@ -155,12 +155,15 @@ function DietsPage({ userId, isTrainer }) {
   );
 }
 
+const DIET_DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
 function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [foods, setFoods] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(1);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -184,9 +187,11 @@ function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
     if (e.target.open && isTrainer && foods.length === 0) fetchFoods();
   };
 
-  const meals = [...new Set(items.map((i) => i.meal_label))];
+  const dayItems = items.filter((i) => (i.day_number || 1) === selectedDay);
+  const daysWithContent = new Set(items.map((i) => i.day_number || 1));
+  const meals = [...new Set(dayItems.map((i) => i.meal_label))];
 
-  const conflictFoods = items.filter((i) =>
+  const conflictFoods = dayItems.filter((i) =>
     (i.foods?.allergens || []).some((a) => allergies.includes(a))
   );
 
@@ -208,10 +213,28 @@ function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
           </p>
         )}
 
+        <div className="week-calendar" style={{ marginBottom: 16 }}>
+          {DIET_DAY_NAMES.map((name, i) => {
+            const dayNum = i + 1;
+            return (
+              <div
+                key={dayNum}
+                onClick={() => setSelectedDay(dayNum)}
+                className={`day-cell ${
+                  daysWithContent.has(dayNum) ? "has-content" : ""
+                } ${selectedDay === dayNum ? "selected" : ""}`}
+              >
+                <div className="day-name">{name}</div>
+                {daysWithContent.has(dayNum) && <div className="day-dot" />}
+              </div>
+            );
+          })}
+        </div>
+
         {conflictFoods.length > 0 && (
           <div className="allergy-warning">
-            ⚠️ Esta dieta contiene alimentos que podrían no ser aptos según
-            tus alergias registradas.
+            ⚠️ Este día contiene alimentos que podrían no ser aptos según tus
+            alergias registradas.
           </div>
         )}
 
@@ -219,10 +242,16 @@ function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
           <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
         )}
 
+        {!loading && dayItems.length === 0 && (
+          <p style={{ fontSize: 13, color: "var(--dark-60)" }}>
+            Sin alimentos asignados este día.
+          </p>
+        )}
+
         {meals.map((meal) => (
           <div key={meal} className="diet-meal-group">
             <div className="diet-meal-title">{meal}</div>
-            {items
+            {dayItems
               .filter((i) => i.meal_label === meal)
               .map((i) => (
                 <div key={i.id} className="diet-food-row">
@@ -259,6 +288,7 @@ function DietCard({ diet, allergies, isTrainer, users, onChanged }) {
         {showAddItem && (
           <AddDietItemModal
             dietId={diet.id}
+            dayNumber={selectedDay}
             foods={foods}
             onClose={() => setShowAddItem(false)}
             onCreated={() => {
@@ -369,7 +399,7 @@ function NewDietModal({ users, onClose, onCreated }) {
   );
 }
 
-function AddDietItemModal({ dietId, foods, onClose, onCreated }) {
+function AddDietItemModal({ dietId, dayNumber, foods, onClose, onCreated }) {
   const [mealLabel, setMealLabel] = useState("Desayuno");
   const [foodId, setFoodId] = useState(foods[0]?.id || "");
   const [quantity, setQuantity] = useState("100");
@@ -387,6 +417,7 @@ function AddDietItemModal({ dietId, foods, onClose, onCreated }) {
 
     const { error: insertError } = await supabase.from("diet_items").insert({
       diet_id: dietId,
+      day_number: dayNumber || 1,
       meal_label: mealLabel,
       food_id: foodId,
       quantity_g: Number(quantity),
@@ -406,7 +437,9 @@ function AddDietItemModal({ dietId, foods, onClose, onCreated }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Añadir alimento</h2>
+          <h2>
+            Añadir alimento — {DIET_DAY_NAMES[(dayNumber || 1) - 1]}
+          </h2>
           <button onClick={onClose}>
             <X size={20} />
           </button>

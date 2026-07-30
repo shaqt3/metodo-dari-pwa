@@ -673,7 +673,7 @@ function ProgressSection({ userId, streak }) {
 
     if (fetchError) {
       setError(
-        "No se pudieron cargar tus registros. Comprueba que la tabla workout_logs exista en Supabase (ejecuta supabase/sql/setup.sql)."
+        "No se pudieron cargar tus registros. Revisa los permisos (RLS/grants) de la tabla workout_logs en Supabase."
       );
       return;
     }

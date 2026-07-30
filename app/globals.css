@@ -1217,6 +1217,42 @@ img {
   50% { transform: translateY(-10px) scaleX(1.08); }
 }
 
+/* lunge: las piernas se abren adelante/atrás alternando */
+.exercise-anim-lunge .exercise-anim-leg-l {
+  animation: lunge-leg-l 1.6s ease-in-out infinite;
+  transform-origin: 60px 72px;
+}
+.exercise-anim-lunge .exercise-anim-leg-r {
+  animation: lunge-leg-r 1.6s ease-in-out infinite;
+  transform-origin: 60px 72px;
+}
+.exercise-anim-lunge .exercise-anim-body {
+  animation: lunge-body 1.6s ease-in-out infinite;
+}
+@keyframes lunge-leg-l {
+  0%, 100% { transform: rotate(-15deg); }
+  50% { transform: rotate(15deg); }
+}
+@keyframes lunge-leg-r {
+  0%, 100% { transform: rotate(15deg); }
+  50% { transform: rotate(-15deg); }
+}
+@keyframes lunge-body {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* jump: salto vertical amplio */
+.exercise-anim-jump .exercise-anim-body {
+  animation: jump-move 0.9s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes jump-move {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  30% { transform: translateY(6px) scaleY(0.9); }
+  60% { transform: translateY(-22px) scaleY(1.05); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+
 /* ============ EXERCISE LIBRARY ============ */
 .exercise-filters {
   display: flex;

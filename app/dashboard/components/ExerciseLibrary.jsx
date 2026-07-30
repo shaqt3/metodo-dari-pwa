@@ -199,10 +199,12 @@ function NewExerciseModal({ onClose, onCreated }) {
               onChange={(e) => setPattern(e.target.value)}
             >
               <option value="squat">Flexión de piernas (sentadilla, prensa...)</option>
+              <option value="lunge">Zancada (piernas alternas)</option>
               <option value="press">Empuje (press, flexiones...)</option>
               <option value="pull">Tirón (remo, curl, jalón...)</option>
               <option value="core">Mantenimiento (plancha...)</option>
-              <option value="cardio">Cardio / salto (burpees, jumping jacks...)</option>
+              <option value="cardio">Cardio (burpees, escaladores...)</option>
+              <option value="jump">Salto vertical (jumping jacks, box jump...)</option>
             </select>
           </div>
 
