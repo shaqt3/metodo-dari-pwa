@@ -1202,7 +1202,10 @@ img {
   max-width: 140px;
   margin: 0 auto;
   border-radius: var(--radius-md);
-  object-fit: cover;
+  background: var(--bg);
+  object-fit: contain;
+  padding: 8px;
+  box-sizing: border-box;
   display: block;
 }
 
