@@ -293,7 +293,7 @@ export default function DashboardPage() {
 
       {/* BOTTOM NAV (mobile) */}
       <nav className="bottom-nav">
-        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
+        {navItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
