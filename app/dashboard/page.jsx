@@ -9,26 +9,31 @@ import {
   TrendingUp,
   User,
   Users,
-  Trash2,
   LogOut,
   Calendar,
   Flame,
   Target,
-  Plus,
-  X,
   Trophy,
-  Camera,
   CheckCircle2,
   Utensils,
   Footprints,
-  Search,
+  X,
+  UserPlus,
+  Apple,
+  ClipboardList,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { TRAINER_EMAILS } from "@/lib/config";
+import { GOALS, DAY_NAMES, labelOf } from "@/lib/options";
 import { weightComparison, distanceComparison } from "@/lib/funCompare";
 import ExerciseLibrary from "./components/ExerciseLibrary";
-import RoutineBuilder, { NewPlanModal } from "./components/RoutineBuilder";
-import Nutrition, { NewDietModal } from "./components/Nutrition";
+import RoutineBuilder from "./components/RoutineBuilder";
+import Nutrition from "./components/Nutrition";
+import Challenges from "./components/Challenges";
+import Members from "./components/Members";
+import ProfileForm from "./components/ProfileForm";
+import Measurements from "./components/Measurements";
+import { confirmDelete } from "./components/ui";
 
 function toDateStr(d) {
   return new Date(d).toISOString().slice(0, 10);
@@ -47,12 +52,8 @@ function computeStreak(dateStrings) {
   let current = new Date(sorted[0]);
   for (let i = 1; i < sorted.length; i++) {
     current.setDate(current.getDate() - 1);
-    const expected = toDateStr(current);
-    if (daySet.has(expected)) {
-      streak++;
-    } else {
-      break;
-    }
+    if (daySet.has(toDateStr(current))) streak++;
+    else break;
   }
   return streak;
 }
@@ -61,9 +62,7 @@ function computeStreak(dateStrings) {
 function gapDaysSinceLastLog(dateStrings) {
   if (!dateStrings.length) return 0;
   const sorted = [...dateStrings].sort().reverse();
-  const lastLog = new Date(sorted[0]);
-  const today = new Date();
-  const diffMs = new Date(toDateStr(today)) - new Date(toDateStr(lastLog));
+  const diffMs = new Date(toDateStr(new Date())) - new Date(toDateStr(sorted[0]));
   return Math.floor(diffMs / 86400000);
 }
 
@@ -91,6 +90,13 @@ export default function DashboardPage() {
       setUserEmail(session.user.email);
       setUserId(session.user.id);
       setLoading(false);
+
+      // Crea/actualiza la ficha con el email para que el socio
+      // aparezca en "Socios" (si falla no pasa nada).
+      supabase
+        .from("profiles")
+        .upsert({ id: session.user.id, email: session.user.email })
+        .then(() => {});
     };
 
     checkSession();
@@ -99,10 +105,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!userId) return;
     const loadStreak = async () => {
-      const { data } = await supabase
-        .from("workout_logs")
-        .select("log_date")
-        .eq("user_id", userId);
+      const { data } = await supabase.from("workout_logs").select("log_date").eq("user_id", userId);
       const dates = (data || []).map((d) => d.log_date);
       setStreak(computeStreak(dates));
       setGapDays(gapDaysSinceLastLog(dates));
@@ -119,15 +122,13 @@ export default function DashboardPage() {
   }
 
   const navItems = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "ejercicios", label: "Ejercicios", icon: Dumbbell },
+    { id: "home", label: "Inicio", icon: Home },
+    ...(isTrainer ? [{ id: "socios", label: "Socios", icon: Users }] : []),
     { id: "rutinas", label: "Rutinas", icon: Calendar },
+    { id: "ejercicios", label: "Ejercicios", icon: Dumbbell },
     { id: "alimentacion", label: "Alimentación", icon: Utensils },
     { id: "retos", label: "Retos", icon: Trophy },
-    { id: "progreso", label: "Progreso", icon: TrendingUp },
-    ...(isTrainer
-      ? [{ id: "usuarios", label: "Usuarios", icon: Users }]
-      : []),
+    ...(!isTrainer ? [{ id: "progreso", label: "Progreso", icon: TrendingUp }] : []),
     { id: "perfil", label: "Perfil", icon: User },
   ];
 
@@ -138,9 +139,14 @@ export default function DashboardPage() {
     router.push("/login");
   };
 
+  const goTo = (tab) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="app-shell">
-      {/* SIDEBAR (desktop) */}
+      {/* SIDEBAR (ordenador) */}
       <aside className="app-sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-logo">
@@ -151,11 +157,7 @@ export default function DashboardPage() {
 
         <nav className="sidebar-nav">
           {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`sidebar-link ${activeTab === id ? "active" : ""}`}
-            >
+            <button key={id} onClick={() => goTo(id)} className={`sidebar-link ${activeTab === id ? "active" : ""}`}>
               <Icon size={18} />
               {label}
             </button>
@@ -163,6 +165,7 @@ export default function DashboardPage() {
         </nav>
 
         <div className="sidebar-footer">
+          {isTrainer && <div className="admin-pill">Modo entrenadora</div>}
           <button onClick={handleLogout} className="sidebar-link">
             <LogOut size={18} />
             Cerrar sesión
@@ -170,107 +173,44 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      {/* MAIN */}
+      {/* CONTENIDO */}
       <main className="app-main">
-        {activeTab === "home" && (
-          <>
-            <div className="app-topbar">
-              <div>
-                <h1>¡Hola de nuevo!</h1>
-                <p>{userEmail}</p>
-              </div>
-              <div className="avatar-chip">{initial}</div>
-            </div>
+        {activeTab === "home" &&
+          (isTrainer ? (
+            <TrainerHome email={userEmail} initial={initial} goTo={goTo} />
+          ) : (
+            <MemberHome
+              userId={userId}
+              email={userEmail}
+              initial={initial}
+              streak={streak}
+              gapDays={gapDays}
+              onRestLogged={() => setGapDays(0)}
+              goTo={goTo}
+            />
+          ))}
 
-            <div className="streak-banner">
-              <div className="streak-icon">
-                <Flame size={20} color="#38bdf8" />
-              </div>
-              <div>
-                <div className="streak-value">
-                  {streak} {streak === 1 ? "día" : "días"}
-                </div>
-                <div className="streak-label">Racha actual de entrenamiento</div>
-              </div>
-            </div>
+        {activeTab === "socios" && isTrainer && <Members onOpenTab={goTo} />}
 
-            {gapDays >= 2 && (
-              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
-            )}
+        {activeTab === "ejercicios" && <ExerciseLibrary isTrainer={isTrainer} />}
 
-            <div className="stat-grid">
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <Calendar size={16} color="#38bdf8" />
-                </div>
-                <div className="stat-value">—</div>
-                <div className="stat-label">Próxima sesión</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <Dumbbell size={16} color="#38bdf8" />
-                </div>
-                <div className="stat-value">—</div>
-                <div className="stat-label">Rutina activa</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <Target size={16} color="#38bdf8" />
-                </div>
-                <div className="stat-value">—</div>
-                <div className="stat-label">Objetivo</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <Trophy size={16} color="#38bdf8" />
-                </div>
-                <div className="stat-value">—</div>
-                <div className="stat-label">Retos completados</div>
-              </div>
-            </div>
+        {activeTab === "rutinas" && <RoutineBuilder userId={userId} isTrainer={isTrainer} />}
 
-            <div className="content-card">
-              <h2>Bienvenido a El Método Dari</h2>
-              <p>
-                Consulta tus rutinas, tus dietas, apunta tu progreso y
-                anímate con los retos. Todo lo que hagas aquí construye tu
-                racha.
-              </p>
-            </div>
-          </>
-        )}
-
-        {activeTab === "ejercicios" && (
-          <ExerciseLibrary isTrainer={isTrainer} />
-        )}
-
-        {activeTab === "rutinas" && (
-          <RoutineBuilder userId={userId} isTrainer={isTrainer} />
-        )}
-
-        {activeTab === "alimentacion" && (
-          <Nutrition userId={userId} isTrainer={isTrainer} />
-        )}
+        {activeTab === "alimentacion" && <Nutrition userId={userId} isTrainer={isTrainer} />}
 
         {activeTab === "retos" && (
           <>
-            {gapDays >= 2 && (
-              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
-            )}
-            <ChallengesSection userId={userId} isTrainer={isTrainer} />
+            {!isTrainer && gapDays >= 2 && <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />}
+            <Challenges userId={userId} isTrainer={isTrainer} />
           </>
         )}
 
         {activeTab === "progreso" && (
           <>
-            {gapDays >= 2 && (
-              <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />
-            )}
+            {gapDays >= 2 && <RestChallengeBanner userId={userId} onLogged={() => setGapDays(0)} />}
             <ProgressSection userId={userId} streak={streak} />
           </>
         )}
-
-        {activeTab === "usuarios" && isTrainer && <TrainerUsersPanel />}
 
         {activeTab === "perfil" && (
           <>
@@ -280,7 +220,10 @@ export default function DashboardPage() {
                 <p>{userEmail}</p>
               </div>
             </div>
-            <ProfileSection userId={userId} />
+            <div className="content-card">
+              <h2 style={{ marginBottom: 14 }}>Mis datos</h2>
+              <ProfileForm userId={userId} email={userEmail} />
+            </div>
             <div className="content-card">
               <button onClick={handleLogout} className="btn btn-outline">
                 <LogOut size={16} />
@@ -291,20 +234,227 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* BOTTOM NAV (mobile) */}
+      {/* BARRA INFERIOR (móvil) */}
       <nav className="bottom-nav">
         {navItems.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`bottom-nav-item ${activeTab === id ? "active" : ""}`}
-          >
+          <button key={id} onClick={() => goTo(id)} className={`bottom-nav-item ${activeTab === id ? "active" : ""}`}>
             <Icon size={20} />
             <span>{label}</span>
           </button>
         ))}
       </nav>
     </div>
+  );
+}
+
+/* ============================================================
+   INICIO — ENTRENADORA
+============================================================ */
+function TrainerHome({ email, initial, goTo }) {
+  const [counts, setCounts] = useState({});
+
+  useEffect(() => {
+    const load = async () => {
+      const count = (table, fn) => {
+        let q = supabase.from(table).select("id", { count: "exact", head: true });
+        if (fn) q = fn(q);
+        return q.then(({ count: c }) => c ?? 0);
+      };
+      const weekAgo = toDateStr(new Date(Date.now() - 7 * 86400000));
+      const [members, exercises, foods, diets, routines, challenges, logs] = await Promise.all([
+        count("profiles", (q) => q.not("email", "in", `(${TRAINER_EMAILS.map((e) => `"${e}"`).join(",")})`)),
+        count("exercise_library"),
+        count("foods"),
+        count("diets"),
+        count("routines"),
+        count("challenges"),
+        count("workout_logs", (q) => q.gte("log_date", weekAgo)),
+      ]);
+      setCounts({ members, exercises, foods, diets, routines, challenges, logs });
+    };
+    load();
+  }, []);
+
+  const tiles = [
+    { tab: "socios", icon: Users, value: counts.members, label: "Socios" },
+    { tab: "rutinas", icon: Calendar, value: counts.routines, label: "Rutinas" },
+    { tab: "ejercicios", icon: Dumbbell, value: counts.exercises, label: "Ejercicios" },
+    { tab: "alimentacion", icon: Utensils, value: counts.diets, label: "Dietas" },
+    { tab: "alimentacion", icon: Apple, value: counts.foods, label: "Alimentos" },
+    { tab: "retos", icon: Trophy, value: counts.challenges, label: "Retos" },
+  ];
+
+  return (
+    <>
+      <div className="app-topbar">
+        <div>
+          <h1>¡Hola, Dari!</h1>
+          <p>{email}</p>
+        </div>
+        <div className="avatar-chip">{initial}</div>
+      </div>
+
+      <div className="streak-banner">
+        <div className="streak-icon">
+          <Flame size={20} color="#38bdf8" />
+        </div>
+        <div>
+          <div className="streak-value">{counts.logs ?? "—"} entrenos</div>
+          <div className="streak-label">registrados por tus socios en los últimos 7 días</div>
+        </div>
+      </div>
+
+      <div className="stat-grid stat-grid-6">
+        {tiles.map(({ tab, icon: Icon, value, label }) => (
+          <button key={label} className="stat-card stat-card-btn" onClick={() => goTo(tab)}>
+            <div className="stat-icon">
+              <Icon size={16} color="#38bdf8" />
+            </div>
+            <div className="stat-value">{value ?? "—"}</div>
+            <div className="stat-label">{label}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="content-card">
+        <h2>¿Qué quieres hacer?</h2>
+        <div className="quick-actions">
+          <button className="quick-action" onClick={() => goTo("socios")}>
+            <UserPlus size={20} />
+            <span>Añadir socio o ver su ficha</span>
+          </button>
+          <button className="quick-action" onClick={() => goTo("rutinas")}>
+            <ClipboardList size={20} />
+            <span>Crear o asignar una rutina</span>
+          </button>
+          <button className="quick-action" onClick={() => goTo("alimentacion")}>
+            <Utensils size={20} />
+            <span>Crear o asignar una dieta</span>
+          </button>
+          <button className="quick-action" onClick={() => goTo("ejercicios")}>
+            <Dumbbell size={20} />
+            <span>Añadir ejercicios y vídeos</span>
+          </button>
+          <button className="quick-action" onClick={() => goTo("retos")}>
+            <Trophy size={20} />
+            <span>Lanzar un reto</span>
+          </button>
+        </div>
+        <p style={{ fontSize: 13, color: "var(--dark-60)", marginTop: 14 }}>
+          Truco: en todas las pantallas verás un lápiz ✏️ para editar y una papelera 🗑️ para borrar.
+        </p>
+      </div>
+    </>
+  );
+}
+
+/* ============================================================
+   INICIO — SOCIO
+============================================================ */
+function MemberHome({ userId, email, initial, streak, gapDays, onRestLogged, goTo }) {
+  const [info, setInfo] = useState({});
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: profile }, { data: routines }, { count: done }] = await Promise.all([
+        supabase.from("profiles").select("full_name, goal").eq("id", userId).maybeSingle(),
+        supabase.from("routines").select("id, title, user_id").order("created_at", { ascending: false }),
+        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      ]);
+      const routine = (routines || []).find((r) => r.user_id === userId) || (routines || [])[0];
+
+      let next = null;
+      if (routine) {
+        const { data: days } = await supabase
+          .from("routine_days")
+          .select("day_number, label")
+          .eq("routine_id", routine.id)
+          .order("day_number");
+        const js = new Date().getDay();
+        const today = js === 0 ? 7 : js;
+        const list = days || [];
+        next = list.find((d) => d.day_number >= today) || list[0] || null;
+        if (next) next = { ...next, isToday: next.day_number === today };
+      }
+      setInfo({ profile, routine, next, done: done || 0 });
+    };
+    if (userId) load();
+  }, [userId]);
+
+  const name = info.profile?.full_name?.split(" ")[0];
+
+  return (
+    <>
+      <div className="app-topbar">
+        <div>
+          <h1>¡Hola{name ? `, ${name}` : " de nuevo"}!</h1>
+          <p>{email}</p>
+        </div>
+        <div className="avatar-chip">{initial}</div>
+      </div>
+
+      <div className="streak-banner">
+        <div className="streak-icon">
+          <Flame size={20} color="#38bdf8" />
+        </div>
+        <div>
+          <div className="streak-value">
+            {streak} {streak === 1 ? "día" : "días"}
+          </div>
+          <div className="streak-label">Racha actual de entrenamiento</div>
+        </div>
+      </div>
+
+      {gapDays >= 2 && <RestChallengeBanner userId={userId} onLogged={onRestLogged} />}
+
+      <div className="stat-grid">
+        <button className="stat-card stat-card-btn" onClick={() => goTo("rutinas")}>
+          <div className="stat-icon">
+            <Calendar size={16} color="#38bdf8" />
+          </div>
+          <div className="stat-value stat-value-sm">
+            {info.next ? (info.next.isToday ? "Hoy" : DAY_NAMES[info.next.day_number - 1]) : "—"}
+          </div>
+          <div className="stat-label">{info.next ? info.next.label : "Próxima sesión"}</div>
+        </button>
+        <button className="stat-card stat-card-btn" onClick={() => goTo("rutinas")}>
+          <div className="stat-icon">
+            <Dumbbell size={16} color="#38bdf8" />
+          </div>
+          <div className="stat-value stat-value-sm">{info.routine?.title || "—"}</div>
+          <div className="stat-label">Rutina activa</div>
+        </button>
+        <button className="stat-card stat-card-btn" onClick={() => goTo("perfil")}>
+          <div className="stat-icon">
+            <Target size={16} color="#38bdf8" />
+          </div>
+          <div className="stat-value stat-value-sm">{labelOf(GOALS, info.profile?.goal) || "Sin definir"}</div>
+          <div className="stat-label">Objetivo</div>
+        </button>
+        <button className="stat-card stat-card-btn" onClick={() => goTo("retos")}>
+          <div className="stat-icon">
+            <Trophy size={16} color="#38bdf8" />
+          </div>
+          <div className="stat-value">{info.done ?? "—"}</div>
+          <div className="stat-label">Retos completados</div>
+        </button>
+      </div>
+
+      {!info.profile?.full_name && (
+        <div className="content-card">
+          <h2>Completa tu ficha</h2>
+          <p>Cuéntale a tu entrenadora tu objetivo, tus datos y si necesitas una alimentación especial (por ejemplo, sin gluten).</p>
+          <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => goTo("perfil")}>
+            Ir a mi perfil
+          </button>
+        </div>
+      )}
+
+      <div className="content-card">
+        <h2>Bienvenido a El Método Dari</h2>
+        <p>Consulta tus rutinas, tus dietas, apunta tu progreso y anímate con los retos. Todo lo que hagas aquí construye tu racha.</p>
+      </div>
+    </>
   );
 }
 
@@ -343,14 +493,10 @@ function RestChallengeBanner({ userId, onLogged }) {
     <div className="rest-banner">
       <h3>Llevas unos días sin entrenar</h3>
       <p>
-        No pasa nada, un día de descanso está bien. Para no perder el
-        ritmo, hoy tienes un reto de descanso activo: anda 12.000 pasos.
+        No pasa nada, un día de descanso está bien. Para no perder el ritmo, hoy tienes un reto de descanso activo:
+        anda 12.000 pasos.
       </p>
-      <button
-        onClick={handleLog}
-        disabled={saving}
-        className="btn btn-primary btn-sm"
-      >
+      <button onClick={handleLog} disabled={saving} className="btn btn-primary btn-sm">
         <Footprints size={15} />
         {saving ? "Guardando..." : "Ya he andado 12.000 pasos"}
       </button>
@@ -359,298 +505,7 @@ function RestChallengeBanner({ userId, onLogged }) {
 }
 
 /* ============================================================
-   RETOS
-============================================================ */
-function ChallengesSection({ userId, isTrainer }) {
-  const [challenges, setChallenges] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-
-  const fetchData = async () => {
-    setLoadingData(true);
-    const [{ data: ch }, { data: subs }] = await Promise.all([
-      supabase.from("challenges").select("*").order("created_at", { ascending: false }),
-      supabase.from("challenge_submissions").select("*").eq("user_id", userId),
-    ]);
-    setChallenges(ch || []);
-    setSubmissions(subs || []);
-    setLoadingData(false);
-  };
-
-  useEffect(() => {
-    if (userId) fetchData();
-  }, [userId]);
-
-  const isCompleted = (challengeId) =>
-    submissions.some((s) => s.challenge_id === challengeId);
-
-  return (
-    <>
-      <div className="section-header">
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>Retos</h1>
-          <p style={{ fontSize: 13, color: "var(--dark-60)", marginTop: 2 }}>
-            En el gimnasio o en casa
-          </p>
-        </div>
-        {isTrainer && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="btn btn-primary btn-sm"
-          >
-            <Plus size={16} />
-            Crear reto
-          </button>
-        )}
-      </div>
-
-      {loadingData && (
-        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando...</p>
-      )}
-
-      {!loadingData && challenges.length === 0 && (
-        <div className="content-card">
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Trophy size={22} color="#38bdf8" />
-            </div>
-            <h3>Todavía no hay retos</h3>
-            <p>
-              {isTrainer
-                ? 'Pulsa "Crear reto" para añadir el primero.'
-                : "Pronto tu entrenadora añadirá retos aquí."}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {challenges.map((c) => (
-        <ChallengeCard
-          key={c.id}
-          challenge={c}
-          userId={userId}
-          completed={isCompleted(c.id)}
-          onCompleted={fetchData}
-        />
-      ))}
-
-      {showForm && (
-        <NewChallengeModal
-          onClose={() => setShowForm(false)}
-          onCreated={() => {
-            setShowForm(false);
-            fetchData();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function ChallengeCard({ challenge, userId, completed, onCompleted }) {
-  const [note, setNote] = useState("");
-  const [file, setFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const locationLabel =
-    challenge.location === "gym"
-      ? "En el gimnasio"
-      : challenge.location === "home"
-      ? "En casa"
-      : "Gimnasio o casa";
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    setError("");
-
-    let photoUrl = null;
-
-    if (file) {
-      const filePath = `${userId}/${challenge.id}-${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("challenge-photos")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        setSaving(false);
-        setError(
-          "No se pudo subir la foto. Revisa que el bucket 'challenge-photos' exista y sea público."
-        );
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("challenge-photos")
-        .getPublicUrl(filePath);
-      photoUrl = publicUrlData?.publicUrl || null;
-    }
-
-    const { error: insertError } = await supabase
-      .from("challenge_submissions")
-      .insert({
-        challenge_id: challenge.id,
-        user_id: userId,
-        photo_url: photoUrl,
-        note: note || null,
-      });
-
-    setSaving(false);
-
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-
-    onCompleted();
-  };
-
-  return (
-    <div className="content-card challenge-card">
-      <div className="challenge-card-head">
-        <h3 style={{ fontSize: 16, fontWeight: 700 }}>{challenge.title}</h3>
-        <span className="badge">{locationLabel}</span>
-      </div>
-      {challenge.description && <p>{challenge.description}</p>}
-
-      {completed ? (
-        <span className="completed-tag">
-          <CheckCircle2 size={16} />
-          Completado
-        </span>
-      ) : (
-        <>
-          <div className="challenge-submit-row">
-            <label className="file-input-label">
-              <Camera size={15} />
-              {file ? file.name : "Añadir foto (opcional)"}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            <input
-              className="input"
-              style={{ flex: 1, minWidth: 160 }}
-              placeholder="Nota (opcional, ej: 50 min en bici)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="btn btn-primary btn-sm"
-            >
-              {saving ? "Guardando..." : "Marcar completado"}
-            </button>
-          </div>
-          {error && (
-            <p className="form-message form-message-error" style={{ marginTop: 10 }}>
-              {error}
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function NewChallengeModal({ onClose, onCreated }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("ambos");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const trainerEmail = sessionData?.session?.user?.email;
-
-    const { error: insertError } = await supabase.from("challenges").insert({
-      title,
-      description: description || null,
-      location,
-      created_by: trainerEmail,
-    });
-
-    setSaving(false);
-
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-
-    onCreated();
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Nuevo reto</h2>
-          <button onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="field-label">Título</label>
-            <input
-              required
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej: 50 minutos en bici"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Descripción</label>
-            <textarea
-              className="textarea"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej: sube una foto de tu ruta en bici de al menos 50 minutos"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="field-label">Dónde se puede hacer</label>
-            <select
-              className="select"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            >
-              <option value="ambos">Gimnasio o casa</option>
-              <option value="gym">Solo gimnasio</option>
-              <option value="home">Solo casa</option>
-            </select>
-          </div>
-
-          {error && <p className="form-message form-message-error">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn btn-primary btn-block"
-          >
-            {saving ? "Guardando..." : "Crear reto"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   PROGRESO
+   PROGRESO (socio)
 ============================================================ */
 function ProgressSection({ userId, streak }) {
   const [kind, setKind] = useState("peso");
@@ -668,13 +523,9 @@ function ProgressSection({ userId, streak }) {
       .select("*")
       .eq("user_id", userId)
       .order("log_date", { ascending: false });
-
     setLoadingLogs(false);
-
     if (fetchError) {
-      setError(
-        "No se pudieron cargar tus registros. Revisa los permisos (RLS/grants) de la tabla workout_logs en Supabase."
-      );
+      setError("No se pudieron cargar tus registros.");
       return;
     }
     setError("");
@@ -688,10 +539,7 @@ function ProgressSection({ userId, streak }) {
   const totalFor = (k) =>
     logs
       .filter((l) => l.kind === k)
-      .reduce(
-        (sum, l) => sum + Number(l[k === "peso" ? "weight_kg" : "distance_km"] || 0),
-        0
-      );
+      .reduce((sum, l) => sum + Number(l[k === "peso" ? "weight_kg" : "distance_km"] || 0), 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -699,32 +547,27 @@ function ProgressSection({ userId, streak }) {
     setError("");
     setComparison(null);
 
-    const payload = {
+    const { error: insertError } = await supabase.from("workout_logs").insert({
       user_id: userId,
       kind,
       log_date: toDateStr(new Date()),
       weight_kg: kind === "peso" ? Number(value) : null,
       distance_km: kind === "cardio" ? Number(value) : null,
-    };
-
-    const { error: insertError } = await supabase
-      .from("workout_logs")
-      .insert(payload);
-
+    });
     setSaving(false);
-
     if (insertError) {
       setError(insertError.message);
       return;
     }
-
     const newTotal = totalFor(kind) + Number(value);
-
-    setComparison(
-      kind === "peso" ? weightComparison(newTotal) : distanceComparison(newTotal)
-    );
-
+    setComparison(kind === "peso" ? weightComparison(newTotal) : distanceComparison(newTotal));
     setValue("");
+    fetchLogs();
+  };
+
+  const removeLog = async (l) => {
+    if (!confirmDelete("este registro")) return;
+    await supabase.from("workout_logs").delete().eq("id", l.id);
     fetchLogs();
   };
 
@@ -733,34 +576,24 @@ function ProgressSection({ userId, streak }) {
       <div className="app-topbar">
         <div>
           <h1>Progreso</h1>
-          <p>Registra tus entrenamientos de peso y cardio</p>
+          <p>Registra tus entrenamientos y tus medidas</p>
         </div>
       </div>
 
       <div className="content-card progress-form">
         <form onSubmit={handleSubmit}>
           <div className="type-toggle">
-            <button
-              type="button"
-              className={kind === "peso" ? "active" : ""}
-              onClick={() => setKind("peso")}
-            >
+            <button type="button" className={kind === "peso" ? "active" : ""} onClick={() => setKind("peso")}>
               Día de peso
             </button>
-            <button
-              type="button"
-              className={kind === "cardio" ? "active" : ""}
-              onClick={() => setKind("cardio")}
-            >
+            <button type="button" className={kind === "cardio" ? "active" : ""} onClick={() => setKind("cardio")}>
               Día de cardio
             </button>
           </div>
 
           <div className="form-group">
             <label className="field-label">
-              {kind === "peso"
-                ? "Kg totales levantados hoy"
-                : "Km recorridos hoy (correr, andar o bici)"}
+              {kind === "peso" ? "Kg totales levantados hoy" : "Km recorridos hoy (correr, andar o bici)"}
             </label>
             <input
               required
@@ -776,11 +609,7 @@ function ProgressSection({ userId, streak }) {
 
           {error && <p className="form-message form-message-error">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn btn-primary btn-block"
-          >
+          <button type="submit" disabled={saving} className="btn btn-primary btn-block">
             {saving ? "Guardando..." : "Registrar"}
           </button>
         </form>
@@ -797,23 +626,29 @@ function ProgressSection({ userId, streak }) {
           Distancia recorrida: <strong>{totalFor("cardio").toLocaleString("es-ES")} km</strong>
         </p>
         <p style={{ marginTop: 8 }}>
-          Racha actual: <strong>{streak} {streak === 1 ? "día" : "días"}</strong>
+          Racha actual:{" "}
+          <strong>
+            {streak} {streak === 1 ? "día" : "días"}
+          </strong>
         </p>
       </div>
 
-      {loadingLogs && (
-        <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando historial...</p>
-      )}
+      <Measurements userId={userId} title="Mi peso y medidas" />
+
+      {loadingLogs && <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Cargando historial...</p>}
 
       {!loadingLogs && logs.length > 0 && (
         <div className="content-card">
           <h2>Historial reciente</h2>
           <div style={{ marginTop: 10 }}>
-            {logs.slice(0, 10).map((l) => (
+            {logs.slice(0, 15).map((l) => (
               <div key={l.id} className="diet-food-row">
-                <span>{l.log_date}</span>
-                <span>
+                <span>{new Date(l.log_date).toLocaleDateString("es-ES")}</span>
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   {l.kind === "peso" ? `${l.weight_kg} kg` : `${l.distance_km} km`}
+                  <button className="icon-btn icon-btn-danger" onClick={() => removeLog(l)} title="Borrar">
+                    <X size={13} />
+                  </button>
                 </span>
               </div>
             ))}
@@ -821,338 +656,5 @@ function ProgressSection({ userId, streak }) {
         </div>
       )}
     </>
-  );
-}
-
-/* ============================================================
-   USUARIOS (entrenador/a) — con buscador y alergias
-============================================================ */
-function TrainerUsersPanel() {
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [error, setError] = useState("");
-  const [deletingId, setDeletingId] = useState(null);
-  const [query, setQuery] = useState("");
-
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
-    setError("");
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const { data, error: fnError } = await supabase.functions.invoke(
-      "admin-users",
-      {
-        body: { action: "list" },
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-
-    setLoadingUsers(false);
-
-    if (fnError) {
-      setError(
-        "No se pudo cargar la lista de usuarios. Revisa que la función admin-users esté desplegada en Supabase."
-      );
-      return;
-    }
-
-    setUsers(data?.users || []);
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const handleDelete = async (id, email) => {
-    const confirmed = window.confirm(
-      `¿Seguro que quieres eliminar al usuario ${email}? Esta acción no se puede deshacer.`
-    );
-    if (!confirmed) return;
-
-    setDeletingId(id);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const { error: fnError } = await supabase.functions.invoke(
-      "admin-users",
-      {
-        body: { action: "delete", userId: id },
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-
-    setDeletingId(null);
-
-    if (fnError) {
-      setError("No se pudo eliminar el usuario. Inténtalo de nuevo.");
-      return;
-    }
-
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  };
-
-  const filtered = users.filter((u) =>
-    u.email.toLowerCase().includes(query.toLowerCase())
-  );
-
-  return (
-    <>
-      <div className="app-topbar">
-        <div>
-          <h1>Usuarios</h1>
-          <p>Gestiona las cuentas registradas en la app</p>
-        </div>
-      </div>
-
-      <div className="search-input-wrap">
-        <input
-          className="input"
-          placeholder="Buscar por email..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
-      <div className="content-card">
-        {loadingUsers && (
-          <p style={{ textAlign: "center", fontSize: 13, color: "var(--dark-60)" }}>
-            Cargando usuarios...
-          </p>
-        )}
-
-        {error && <p className="form-message form-message-error">{error}</p>}
-
-        {!loadingUsers && !error && filtered.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Users size={22} color="#38bdf8" />
-            </div>
-            <h3>No hay usuarios que coincidan</h3>
-            <p>Prueba con otro término de búsqueda.</p>
-          </div>
-        )}
-
-        {filtered.map((u) => (
-          <UserRow
-            key={u.id}
-            user={u}
-            deleting={deletingId === u.id}
-            onDelete={() => handleDelete(u.id, u.email)}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function UserRow({ user, deleting, onDelete }) {
-  const [open, setOpen] = useState(false);
-  const [allergiesInput, setAllergiesInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [routines, setRoutines] = useState([]);
-  const [diets, setDiets] = useState([]);
-  const [showNewPlan, setShowNewPlan] = useState(false);
-  const [showNewDiet, setShowNewDiet] = useState(false);
-
-  const singleUserList = [{ id: user.id, email: user.email }];
-
-  const loadEverything = async () => {
-    const [{ data: profile }, { data: userRoutines }, { data: userDiets }] =
-      await Promise.all([
-        supabase.from("profiles").select("allergies").eq("id", user.id).maybeSingle(),
-        supabase.from("routines").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("diets").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      ]);
-    setAllergiesInput((profile?.allergies || []).join(", "));
-    setRoutines(userRoutines || []);
-    setDiets(userDiets || []);
-    setLoaded(true);
-  };
-
-  const handleToggle = (e) => {
-    setOpen(e.target.open);
-    if (e.target.open && !loaded) loadEverything();
-  };
-
-  const handleSaveAllergies = async () => {
-    setSaving(true);
-    const allergies = allergiesInput
-      .split(",")
-      .map((a) => a.trim())
-      .filter(Boolean);
-
-    await supabase
-      .from("profiles")
-      .upsert({ id: user.id, allergies, updated_at: new Date().toISOString() });
-
-    setSaving(false);
-  };
-
-  return (
-    <details className="accordion-item" onToggle={handleToggle}>
-      <summary className="accordion-summary">
-        <span>{user.email}</span>
-      </summary>
-      <div className="accordion-body">
-        <div className="form-group">
-          <label className="field-label">
-            Alergias (separadas por comas, ej: gluten, lactosa)
-          </label>
-          <input
-            className="input"
-            value={allergiesInput}
-            onChange={(e) => setAllergiesInput(e.target.value)}
-            placeholder="Sin alergias registradas"
-          />
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
-          <button
-            onClick={handleSaveAllergies}
-            disabled={saving}
-            className="btn btn-outline btn-sm"
-          >
-            {saving ? "Guardando..." : "Guardar alergias"}
-          </button>
-          <button
-            onClick={onDelete}
-            disabled={deleting}
-            className="btn btn-danger-outline btn-sm"
-          >
-            <Trash2 size={14} />
-            {deleting ? "..." : "Eliminar usuario"}
-          </button>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span className="field-label" style={{ marginBottom: 0 }}>Rutinas asignadas</span>
-          <button onClick={() => setShowNewPlan(true)} className="btn btn-outline btn-sm">
-            + Asignar rutina
-          </button>
-        </div>
-        {routines.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--dark-60)", marginBottom: 20 }}>
-            Sin rutinas propias asignadas todavía.
-          </p>
-        ) : (
-          <ul style={{ marginBottom: 20 }}>
-            {routines.map((r) => (
-              <li key={r.id} className="user-row" style={{ marginBottom: 8 }}>
-                <span className="user-row-email">{r.title}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span className="field-label" style={{ marginBottom: 0 }}>Dietas asignadas</span>
-          <button onClick={() => setShowNewDiet(true)} className="btn btn-outline btn-sm">
-            + Asignar dieta
-          </button>
-        </div>
-        {diets.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--dark-60)" }}>
-            Sin dietas propias asignadas todavía.
-          </p>
-        ) : (
-          <ul>
-            {diets.map((d) => (
-              <li key={d.id} className="user-row" style={{ marginBottom: 8 }}>
-                <span className="user-row-email">{d.title}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {showNewPlan && (
-        <NewPlanModal
-          users={singleUserList}
-          defaultUserId={user.id}
-          onClose={() => setShowNewPlan(false)}
-          onCreated={() => {
-            setShowNewPlan(false);
-            loadEverything();
-          }}
-        />
-      )}
-
-      {showNewDiet && (
-        <NewDietModal
-          users={singleUserList}
-          defaultUserId={user.id}
-          onClose={() => setShowNewDiet(false)}
-          onCreated={() => {
-            setShowNewDiet(false);
-            loadEverything();
-          }}
-        />
-      )}
-    </details>
-  );
-}
-
-/* ============================================================
-   PERFIL — alergias propias
-============================================================ */
-function ProfileSection({ userId }) {
-  const [allergiesInput, setAllergiesInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("allergies")
-        .eq("id", userId)
-        .maybeSingle();
-      setAllergiesInput((data?.allergies || []).join(", "));
-    };
-    if (userId) load();
-  }, [userId]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaved(false);
-    const allergies = allergiesInput
-      .split(",")
-      .map((a) => a.trim())
-      .filter(Boolean);
-
-    await supabase
-      .from("profiles")
-      .upsert({ id: userId, allergies, updated_at: new Date().toISOString() });
-
-    setSaving(false);
-    setSaved(true);
-  };
-
-  return (
-    <div className="content-card">
-      <h2>Mis alergias</h2>
-      <p style={{ marginBottom: 14 }}>
-        Las usamos para avisarte si una dieta contiene algo que debas evitar.
-      </p>
-      <div className="form-group">
-        <input
-          className="input"
-          value={allergiesInput}
-          onChange={(e) => setAllergiesInput(e.target.value)}
-          placeholder="Ej: gluten, lactosa, frutos secos"
-        />
-      </div>
-      <button onClick={handleSave} disabled={saving} className="btn btn-outline btn-sm">
-        {saving ? "Guardando..." : "Guardar alergias"}
-      </button>
-      {saved && (
-        <p className="form-message form-message-info" style={{ marginTop: 10 }}>
-          Guardado.
-        </p>
-      )}
-    </div>
   );
 }

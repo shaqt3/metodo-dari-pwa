@@ -1,0 +1,9 @@
+NO EJECUTES NINGÚN SCRIPT DE ESTA CARPETA.
+
+Son versiones antiguas que ya se aplicaron en su día. Se guardan solo
+como historial.
+
+¡OJO! RUN_THIS.sql BORRA todas las tablas de la app (socios, rutinas,
+dietas, progreso...). Si lo ejecutas ahora perderías todos los datos.
+
+El script bueno es V6_PANEL_ADMIN.sql (en la carpeta de arriba).
