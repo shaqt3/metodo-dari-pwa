@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserPlus, Users, Copy, Trash2, ChevronRight, Phone } from "lucide-react";
+import { UserPlus, Users, Copy, Trash2, ChevronRight, Phone, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   fetchMembers,
@@ -14,9 +14,14 @@ import {
 import { GOALS, MODALITIES, DIET_NEEDS, DIET_TYPES, labelOf, age } from "@/lib/options";
 import ProfileForm from "./ProfileForm";
 import Measurements from "./Measurements";
+import ProgressPhotos from "./ProgressPhotos";
+import Checkins from "./Checkins";
+import { Chat } from "./Messages";
+import { MemberPayments, PaymentsOverview } from "./Payments";
 import { Modal, ChipFilter, ErrorMsg, Loading, confirmDelete } from "./ui";
 
-export default function Members({ onOpenTab }) {
+export default function Members({ onOpenTab, onPreview, myId }) {
+  const [view, setView] = useState("lista");
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,6 +69,19 @@ export default function Members({ onOpenTab }) {
         </button>
       </div>
 
+      <div className="subnav">
+        <button className={view === "lista" ? "active" : ""} onClick={() => setView("lista")}>
+          Lista de socios
+        </button>
+        <button className={view === "cuotas" ? "active" : ""} onClick={() => setView("cuotas")}>
+          Cuotas del mes
+        </button>
+      </div>
+
+      {view === "cuotas" ? (
+        <PaymentsOverview onOpenMember={(m) => setSelected(m)} />
+      ) : (
+      <>
       <div className="search-input-wrap">
         <input
           className="input"
@@ -131,6 +149,8 @@ export default function Members({ onOpenTab }) {
           </button>
         ))}
       </div>
+      </>
+      )}
 
       {selected && (
         <MemberDetail
@@ -144,6 +164,8 @@ export default function Members({ onOpenTab }) {
             load();
           }}
           onOpenTab={onOpenTab}
+          onPreview={onPreview}
+          myId={myId}
         />
       )}
 
@@ -191,7 +213,7 @@ function InviteModal({ onClose }) {
   );
 }
 
-function MemberDetail({ member, onClose, onDeleted, onOpenTab }) {
+function MemberDetail({ member, onClose, onDeleted, onOpenTab, onPreview, myId }) {
   const [tab, setTab] = useState("datos");
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -224,6 +246,11 @@ function MemberDetail({ member, onClose, onDeleted, onOpenTab }) {
             <Phone size={13} /> {member.phone}
           </a>
         )}
+        {onPreview && (
+          <button className="btn btn-outline btn-sm" style={{ marginLeft: "auto" }} onClick={() => onPreview(member)}>
+            <Eye size={14} /> Ver la app como este socio
+          </button>
+        )}
       </div>
 
       <div className="subnav">
@@ -232,6 +259,9 @@ function MemberDetail({ member, onClose, onDeleted, onOpenTab }) {
           ["rutinas", "Rutinas"],
           ["dietas", "Dietas"],
           ["progreso", "Progreso"],
+          ["revisiones", "Revisiones"],
+          ["cuotas", "Cuotas"],
+          ["mensajes", "Mensajes"],
         ].map(([id, label]) => (
           <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
             {label}
@@ -253,6 +283,11 @@ function MemberDetail({ member, onClose, onDeleted, onOpenTab }) {
       {tab === "rutinas" && <AssignedList kind="routines" member={member} onOpenTab={onOpenTab} />}
       {tab === "dietas" && <AssignedList kind="diets" member={member} onOpenTab={onOpenTab} />}
       {tab === "progreso" && <MemberProgress member={member} />}
+      {tab === "revisiones" && <Checkins userId={member.id} isTrainer />}
+      {tab === "cuotas" && <MemberPayments member={member} isTrainer />}
+      {tab === "mensajes" && myId && (
+        <Chat memberId={member.id} myId={myId} otherName={displayName(member).split(" ")[0]} height={340} />
+      )}
     </Modal>
   );
 }
@@ -419,6 +454,7 @@ function MemberProgress({ member }) {
         </div>
       </div>
       <Measurements userId={member.id} title="Peso y medidas" />
+      <ProgressPhotos userId={member.id} title="Fotos de progreso" />
     </>
   );
 }

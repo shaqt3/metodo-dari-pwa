@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Dumbbell, Pencil, Copy, Trash2, ArrowUp, ArrowDown, PlayCircle } from "lucide-react";
+import { Plus, Dumbbell, Pencil, Copy, Trash2, ArrowUp, ArrowDown, PlayCircle, Printer, Timer } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { GOALS, LEVELS, EXERCISE_CATEGORIES, DAY_NAMES, labelOf } from "@/lib/options";
 import { currentEmail, fetchMembers, displayName, copyRoutine, friendlyError } from "@/lib/data";
 import ExerciseAnimation from "./ExerciseAnimation";
 import { CopyModal } from "./Nutrition";
+import { RoutinePrint } from "./Printable";
+import { RestTimer, SetLogger } from "./WorkoutTools";
 import { Modal, EditDeleteButtons, confirmDelete, MediaInput, MediaView, ErrorMsg, Loading } from "./ui";
 
 export default function RoutineBuilder({ userId, isTrainer }) {
@@ -16,6 +18,7 @@ export default function RoutineBuilder({ userId, isTrainer }) {
   const [loading, setLoading] = useState(true);
   const [editingPlan, setEditingPlan] = useState(null);
   const [showCopy, setShowCopy] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
   const [error, setError] = useState("");
 
   const fetchPlans = async (selectId) => {
@@ -26,7 +29,8 @@ export default function RoutineBuilder({ userId, isTrainer }) {
       .select("*")
       .order("created_at", { ascending: false });
     if (fetchError) setError(fetchError.message);
-    const list = data || [];
+    // Un socio solo ve sus planes y las plantillas generales
+    const list = (data || []).filter((p) => isTrainer || p.user_id === null || p.user_id === userId);
     // El socio ve primero sus propias rutinas
     list.sort((a, b) => Number(b.user_id === userId) - Number(a.user_id === userId));
     setPlans(list);
@@ -41,7 +45,7 @@ export default function RoutineBuilder({ userId, isTrainer }) {
   useEffect(() => {
     fetchPlans();
     if (isTrainer) fetchMembers().then(setMembers).catch(() => {});
-  }, [isTrainer]);
+  }, [isTrainer, userId]);
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
@@ -142,6 +146,15 @@ export default function RoutineBuilder({ userId, isTrainer }) {
         </div>
       )}
 
+      {selectedPlan && (
+        <div className="toolbar" style={{ marginBottom: 12 }}>
+          <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>
+            <Printer size={14} /> PDF / WhatsApp
+          </button>
+        </div>
+      )}
+      {showPrint && selectedPlan && <RoutinePrint plan={selectedPlan} onClose={() => setShowPrint(false)} />}
+
       {selectedPlan && (selectedPlan.goal || selectedPlan.level) && (
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           {selectedPlan.goal && <span className="badge">{labelOf(GOALS, selectedPlan.goal)}</span>}
@@ -149,7 +162,7 @@ export default function RoutineBuilder({ userId, isTrainer }) {
         </div>
       )}
 
-      {selectedPlan && <PlanView key={selectedPlan.id} plan={selectedPlan} isTrainer={isTrainer} />}
+      {selectedPlan && <PlanView key={selectedPlan.id} plan={selectedPlan} isTrainer={isTrainer} userId={userId} />}
 
       {editingPlan && (
         <PlanModal
@@ -269,7 +282,7 @@ export function PlanModal({ initial, members, defaultUserId, onClose, onSaved })
   );
 }
 
-function PlanView({ plan, isTrainer }) {
+function PlanView({ plan, isTrainer, userId }) {
   const [days, setDays] = useState([]);
   const [selectedDayNum, setSelectedDayNum] = useState(() => {
     const d = new Date().getDay();
@@ -345,6 +358,7 @@ function PlanView({ plan, isTrainer }) {
           key={currentDay.id}
           day={currentDay}
           isTrainer={isTrainer}
+          userId={userId}
           onEditDay={() => setEditingDay(currentDay)}
           onDeleteDay={deleteDay}
         />
@@ -415,7 +429,8 @@ function DayModal({ routineId, dayNumber, initial, onClose, onSaved }) {
   );
 }
 
-function DayDetail({ day, isTrainer, onEditDay, onDeleteDay }) {
+function DayDetail({ day, isTrainer, userId, onEditDay, onDeleteDay }) {
+  const [showTimer, setShowTimer] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState(null);
@@ -459,8 +474,20 @@ function DayDetail({ day, isTrainer, onEditDay, onDeleteDay }) {
     <div className="content-card">
       <div className="section-header" style={{ marginBottom: 0 }}>
         <h2 style={{ fontSize: 17 }}>{day.label}</h2>
-        {isTrainer && <EditDeleteButtons onEdit={onEditDay} onDelete={onDeleteDay} small={false} />}
+        {isTrainer ? (
+          <EditDeleteButtons onEdit={onEditDay} onDelete={onDeleteDay} small={false} />
+        ) : (
+          <button className="btn btn-outline btn-sm" onClick={() => setShowTimer(true)}>
+            <Timer size={14} /> Descanso
+          </button>
+        )}
       </div>
+      {!isTrainer && (
+        <p style={{ fontSize: 12, color: "var(--dark-60)", marginTop: 6 }}>
+          Pulsa "Apuntar series" en cada ejercicio para guardar tus repeticiones y kilos.
+        </p>
+      )}
+      {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
 
       {day.notes && <p className="routine-notes">{day.notes}</p>}
       {day.video_url && <MediaView url={day.video_url} title={day.label} />}
@@ -516,6 +543,7 @@ function DayDetail({ day, isTrainer, onEditDay, onDeleteDay }) {
                   </div>
                 )}
               </div>
+              {!isTrainer && ex && userId && <SetLogger userId={userId} exercise={ex} planned={it} />}
               {openVideo === it.id && <MediaView url={ex.video_url} title={ex.name} />}
               {openVideo === it.id && ex?.description && <p className="routine-notes">{ex.description}</p>}
             </div>
