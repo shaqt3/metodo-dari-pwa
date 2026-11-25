@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { friendlyError } from "@/lib/data";
 import { Modal, EditDeleteButtons, confirmDelete, ErrorMsg, Loading } from "./ui";
+import LineChart from "./Chart";
 
 const FIELDS = [
   { id: "weight_kg", label: "Peso", unit: "kg" },
@@ -25,6 +26,7 @@ export default function Measurements({ userId, title = "Peso y medidas" }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
+  const [chartField, setChartField] = useState("weight_kg");
 
   const load = async () => {
     setLoading(true);
@@ -78,6 +80,27 @@ export default function Measurements({ userId, title = "Peso y medidas" }) {
       {loading && <Loading />}
       {!loading && rows.length === 0 && !error && (
         <p style={{ fontSize: 13, color: "var(--dark-60)" }}>Todavía no hay mediciones.</p>
+      )}
+
+      {rows.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="check-grid" style={{ marginBottom: 10 }}>
+            {FIELDS.filter((f) => rows.filter((r) => r[f.id] != null).length > 1).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`filter-chip ${chartField === f.id ? "active" : ""}`}
+                onClick={() => setChartField(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <LineChart
+            points={rows.map((r) => ({ x: r.measured_on, y: r[chartField] }))}
+            unit={FIELDS.find((f) => f.id === chartField)?.unit}
+          />
+        </div>
       )}
 
       {rows.length > 0 && (

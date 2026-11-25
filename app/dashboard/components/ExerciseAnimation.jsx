@@ -10,9 +10,9 @@ const GROUPS = {
   squat: { icon: PersonStanding, color: "#38bdf8" },
   lunge: { icon: PersonStanding, color: "#38bdf8" },
   hinge: { icon: PersonStanding, color: "#38bdf8" },
-  press: { icon: Dumbbell, color: "#0f172a" },
-  pull: { icon: Dumbbell, color: "#0f172a" },
-  core: { icon: Activity, color: "#0369a1" },
+  press: { icon: Dumbbell, color: "#64748b" },
+  pull: { icon: Dumbbell, color: "#64748b" },
+  core: { icon: Activity, color: "#0ea5e9" },
   cardio: { icon: Zap, color: "#f59e0b" },
   jump: { icon: Zap, color: "#f59e0b" },
 };
