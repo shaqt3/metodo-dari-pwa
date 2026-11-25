@@ -19,8 +19,8 @@ import {
 
 const LEGEND = [
   { icon: PersonStanding, color: "#38bdf8", label: "Piernas / cadera (sentadilla, zancada, peso muerto...)" },
-  { icon: Dumbbell, color: "#0f172a", label: "Empuje o tirón de brazos/espalda (press, remo, curl...)" },
-  { icon: Activity, color: "#0369a1", label: "Core / mantenimiento (plancha, abdominales...)" },
+  { icon: Dumbbell, color: "#64748b", label: "Empuje o tirón de brazos/espalda (press, remo, curl...)" },
+  { icon: Activity, color: "#0ea5e9", label: "Core / mantenimiento (plancha, abdominales...)" },
   { icon: Zap, color: "#f59e0b", label: "Cardio / salto (burpees, jumping jacks, correr...)" },
 ];
 

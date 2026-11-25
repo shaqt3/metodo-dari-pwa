@@ -140,7 +140,7 @@ export function MediaView({ url, title = "", className = "" }) {
   if (/^https?:\/\//.test(url) && !/\.(jpe?g|png|gif|webp|avif|heic)(\?|$)/i.test(url)) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="exercise-video-link">
-        <Link2 size={14} /> Abrir enlace
+        <Link2 size={14} /> {/\.pdf(\?|$)/i.test(url) ? "Abrir PDF" : "Abrir enlace"}
       </a>
     );
   }
@@ -154,9 +154,20 @@ export function MediaInput({ label, value, onChange, kind = "image", folder = "g
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
-  const accept = kind === "video" ? "video/*" : kind === "any" ? "image/*,video/*" : "image/*";
+  const accept =
+    kind === "video"
+      ? "video/*"
+      : kind === "any"
+      ? "image/*,video/*"
+      : kind === "doc"
+      ? "image/*,application/pdf"
+      : "image/*";
   const placeholder =
-    kind === "video" ? "Pega un enlace de YouTube o sube el vídeo" : "Pega un enlace o sube una foto";
+    kind === "video"
+      ? "Pega un enlace de YouTube o sube el vídeo"
+      : kind === "doc"
+      ? "Pega un enlace o sube una foto o PDF"
+      : "Pega un enlace o sube una foto";
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];

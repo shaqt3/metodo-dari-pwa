@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trophy, Camera, CheckCircle2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { currentEmail, displayName, fetchMembers, friendlyError } from "@/lib/data";
+import { isVideoFile } from "@/lib/media";
 import {
   Modal,
   EditDeleteButtons,
@@ -142,7 +143,11 @@ function ChallengeCard({ challenge, userId, isTrainer, members, submissions, onC
         .upload(filePath, file);
       if (uploadError) {
         setSaving(false);
-        setError("No se pudo subir la foto. Prueba con otra o márcalo sin foto.");
+        setError(
+          /exceeded|too large|size/i.test(uploadError.message)
+            ? "El archivo es demasiado grande (máximo 50 MB). Prueba con un vídeo más corto."
+            : "No se pudo subir el archivo. Prueba con otro o márcalo sin foto."
+        );
         return;
       }
       photoUrl = supabase.storage.from("challenge-photos").getPublicUrl(filePath).data?.publicUrl || null;
@@ -203,8 +208,12 @@ function ChallengeCard({ challenge, userId, isTrainer, members, submissions, onC
                 </div>
                 {s.photo_url && (
                   <a href={s.photo_url} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.photo_url} alt="" className="submission-thumb" />
+                    {isVideoFile(s.photo_url) ? (
+                      <span className="badge">▶ Ver vídeo</span>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.photo_url} alt="" className="submission-thumb" />
+                    )}
                   </a>
                 )}
               </div>
@@ -223,8 +232,8 @@ function ChallengeCard({ challenge, userId, isTrainer, members, submissions, onC
           <div className="challenge-submit-row">
             <label className="file-input-label">
               <Camera size={15} />
-              {file ? file.name : "Añadir foto (opcional)"}
-              <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file ? file.name : "Añadir foto o vídeo (opcional)"}
+              <input type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             </label>
             <input
               className="input"
