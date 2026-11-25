@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Utensils, Copy, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Utensils, Copy, Pencil, Trash2, AlertTriangle, ShoppingCart, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   DIET_TYPES,
@@ -24,7 +24,10 @@ import {
   CheckboxGroup,
   ErrorMsg,
   Loading,
+  MediaInput,
+  MediaView,
 } from "./ui";
+import { DietPrint, ShoppingList } from "./Printable";
 
 const DIET_DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -102,6 +105,8 @@ function DietsPage({ userId, isTrainer }) {
   ];
 
   const visible = diets.filter((d) => {
+    // Un socio solo ve sus dietas y las plantillas generales
+    if (!isTrainer && d.user_id !== null && d.user_id !== userId) return false;
     if (typeFilter !== "todas" && d.diet_type !== typeFilter) return false;
     if (ownerFilter === "plantillas" && d.user_id !== null) return false;
     if (ownerFilter === "socios" && d.user_id === null) return false;
@@ -214,6 +219,8 @@ function DietCard({ diet, profile, isTrainer, members, onEdit, onDelete, onChang
   const [itemModal, setItemModal] = useState(null);
   const [showCopy, setShowCopy] = useState(false);
   const [showCopyDay, setShowCopyDay] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
+  const [showShopping, setShowShopping] = useState(false);
 
   const fetchItems = async () => {
     const { data } = await supabase
@@ -286,7 +293,22 @@ function DietCard({ diet, profile, isTrainer, members, onEdit, onDelete, onChang
           </div>
         )}
 
+        {items !== null && list.length > 0 && (
+          <div className="toolbar">
+            <button className="btn btn-outline btn-sm" onClick={() => setShowShopping(true)}>
+              <ShoppingCart size={14} /> Lista de la compra
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowPrint(true)}>
+              <Printer size={14} /> PDF / WhatsApp
+            </button>
+          </div>
+        )}
         {diet.notes && <p style={{ fontSize: 13, color: "var(--dark-70)", marginBottom: 14 }}>{diet.notes}</p>}
+        {diet.attachment_url && (
+          <div className="attachment-box">
+            <MediaView url={diet.attachment_url} title={diet.title} />
+          </div>
+        )}
 
         <div className="week-calendar" style={{ marginBottom: 16 }}>
           {DIET_DAY_NAMES.map((name, i) => {
@@ -401,6 +423,8 @@ function DietCard({ diet, profile, isTrainer, members, onEdit, onDelete, onChang
             }}
           />
         )}
+        {showPrint && <DietPrint diet={diet} items={list} onClose={() => setShowPrint(false)} />}
+        {showShopping && <ShoppingList diet={diet} items={list} onClose={() => setShowShopping(false)} />}
         {showCopyDay && (
           <CopyDayModal
             dietId={diet.id}
@@ -529,6 +553,7 @@ export function DietModal({ initial, members, defaultUserId, onClose, onSaved })
     notes: initial?.notes || "",
     diet_type: initial?.diet_type || "",
     kcal_target: initial?.kcal_target ?? "",
+    attachment_url: initial?.attachment_url || "",
     target: initial?.id ? initial.user_id || "template" : defaultUserId || "template",
   });
   const [saving, setSaving] = useState(false);
@@ -546,6 +571,8 @@ export function DietModal({ initial, members, defaultUserId, onClose, onSaved })
       kcal_target: form.kcal_target === "" ? null : Number(form.kcal_target),
       user_id: form.target === "template" ? null : form.target,
     };
+    if (form.attachment_url) payload.attachment_url = form.attachment_url;
+    else if (initial?.attachment_url) payload.attachment_url = null;
     const { error: saveErr } = isNew
       ? await supabase.from("diets").insert({ ...payload, created_by: await currentEmail() })
       : await supabase.from("diets").update(payload).eq("id", initial.id);
@@ -583,6 +610,13 @@ export function DietModal({ initial, members, defaultUserId, onClose, onSaved })
           <label className="field-label">Indicaciones</label>
           <textarea className="textarea" value={form.notes} onChange={set("notes")} placeholder="Ej: beber 2 litros de agua, cocinar a la plancha..." />
         </div>
+        <MediaInput
+          label="Foto o PDF adjunto (opcional: recetas, lista de la compra...)"
+          value={form.attachment_url}
+          onChange={(v) => setForm((f) => ({ ...f, attachment_url: v }))}
+          kind="doc"
+          folder="dietas"
+        />
         <div className="form-group">
           <label className="field-label">Para quién</label>
           <select className="select" value={form.target} onChange={set("target")}>
